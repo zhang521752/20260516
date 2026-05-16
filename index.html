@@ -319,6 +319,50 @@
       box-shadow: 0 0 30px rgba(0,255,136,0.25);
       transform: translateY(-3px);
     }
+    /* 密码显示/隐藏切换按钮 */
+    .pwd-toggle-btn {
+      position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+      cursor: pointer; color: #5a5a7a; font-size: 14px; user-select: none; transition: color 0.2s;
+    }
+    .pwd-toggle-btn:hover { color: #00ff88; }
+    /* 登录注册切换过渡 */
+    @keyframes tabSlideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+    .tab-slide-in { animation: tabSlideIn 0.3s ease-out; }
+    /* 项目卡片三点菜单 */
+    .project-card-menu { position: absolute; top: 8px; right: 8px; z-index: 10; }
+    .project-card-menu-btn {
+      width: 24px; height: 24px; border-radius: 6px; display: flex; align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.5); color: #5a5a7a; font-size: 14px; cursor: pointer; transition: all 0.2s;
+      border: none; padding: 0;
+    }
+    .project-card-menu-btn:hover { background: rgba(0,255,136,0.15); color: #00ff88; }
+    .project-card-dropdown {
+      position: absolute; right: 0; top: 28px; min-width: 120px; border-radius: 10px; overflow: hidden;
+      background: rgba(20,20,40,0.98); border: 1px solid rgba(0,255,136,0.15); box-shadow: 0 0 20px rgba(0,0,0,0.5);
+      z-index: 20;
+    }
+    .project-card-dropdown button {
+      display: flex; align-items: center; gap: 6px; width: 100%; padding: 8px 12px; font-size: 12px;
+      text-align: left; border: none; background: transparent; cursor: pointer; transition: all 0.15s; color: #e8e8f0;
+    }
+    .project-card-dropdown button:hover { background: rgba(0,255,136,0.08); }
+    /* 重命名输入框 */
+    .rename-input {
+      background: rgba(13,13,26,0.9); border: 1px solid rgba(0,255,136,0.4); border-radius: 6px;
+      padding: 2px 8px; font-size: 14px; font-weight: 700; color: #e8e8f0; width: 100%; outline: none;
+    }
+    .rename-input:focus { box-shadow: 0 0 0 2px rgba(0,255,136,0.15); }
+    /* 状态标签 */
+    .status-tag { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 20px; }
+    .status-draft { background: rgba(90,90,122,0.2); color: #8888aa; border: 1px solid rgba(90,90,122,0.3); }
+    .status-making { background: rgba(255,165,0,0.15); color: #ffa500; border: 1px solid rgba(255,165,0,0.3); }
+    .status-done { background: rgba(0,184,148,0.15); color: #00b894; border: 1px solid rgba(0,184,148,0.3); }
+    /* 统计卡片 */
+    .stat-card {
+      background: rgba(20,20,40,0.8); border: 1px solid rgba(0,255,136,0.1); border-radius: 12px;
+      padding: 16px; transition: all 0.3s;
+    }
+    .stat-card:hover { border-color: rgba(0,255,136,0.3); box-shadow: 0 0 15px rgba(0,255,136,0.08); }
   </style>
 </head>
 <body class="bg-panel text-textPrimary">
@@ -2377,7 +2421,7 @@
     /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
     /* ─── 中央画布区 ─── */
     /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
-    function CenterCanvas({ scenes, onUpdateScene, onToast, onOpenExport, onOpenApiConfig, balanceVersion, onShowSensitiveAlert, onShowRecharge, onBalanceChange, onOpenApiConfigFromRecharge, currentProject, onBackToProjects }) {
+    function CenterCanvas({ scenes, onUpdateScene, onToast, onOpenExport, onOpenApiConfig, balanceVersion, onShowSensitiveAlert, onShowRecharge, onBalanceChange, onOpenApiConfigFromRecharge, currentProject, onBackToProjects, currentUser }) {
       const [viewMode, setViewMode] = useState('timeline'); // 'timeline' | 'table'
       const [selectedSceneId, setSelectedSceneId] = useState(scenes.length > 0 ? scenes[0].id : null);
       const [generatingVideo, setGeneratingVideo] = useState(false);
@@ -2470,18 +2514,31 @@
               )}
             </div>
             <div className="flex items-center gap-2">
-              {/* 算力余额显示 */}
+              {/* 用户信息+算力余额（工作台内） */}
+              {currentUser && (
+                <div className="flex items-center gap-2 px-2 py-1 rounded-lg" style={{ background: 'rgba(255,107,53,0.06)' }}>
+                  <span className="text-[11px] text-textSecondary hidden sm:inline">{currentUser.nickname}</span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded cursor-pointer ${isLowBalance ? 'balance-flash' : ''}`}
+                    style={isLowBalance ? { color: '#e74c3c' } : { color: '#fdcb6e' }}
+                    onClick={() => onShowRecharge(currentPoints, 0)}
+                    title="点击充值">
+                    ⚡{currentPoints}点
+                  </span>
+                </div>
+              )}
+              {/* 算力余额显示（原有） */}
               {isSelfKeyMode ? (
                 <span className="text-[11px] font-bold px-3 py-1 rounded-lg bg-surface border border-green-500/30 text-green-400">
                   ⚡ 自带Key模式
                 </span>
-              ) : (
+              ) : !currentUser ? (
                 <span className={`text-[11px] font-bold px-3 py-1 rounded-lg bg-surface border border-border ${isLowBalance ? 'balance-flash' : ''}`}
                   style={isLowBalance ? { color: '#e74c3c', borderColor: 'rgba(231,76,60,0.4)' } : { color: '#fdcb6e' }}
+                  onClick={() => onShowRecharge(currentPoints, 0)}
                 >
                   ⚡ 算力余额：{currentPoints} 点
                 </span>
-              )}
+              ) : null}
               <button
                 onClick={onOpenApiConfig}
                 className="w-8 h-8 rounded-lg bg-surface hover:bg-tabHover border border-border flex items-center justify-center text-textSecondary hover:text-accent transition-all text-sm"
@@ -2618,15 +2675,17 @@
     /* ─── 右侧面板 ─── */
     function RightPanel({ collapsed, onToggle }) {
       return (
-        <div className="h-full flex collapse-transition border-l border-border"
-          style={{ width: collapsed ? 0 : 280, minWidth: collapsed ? 0 : 280, overflow: 'hidden' }}>
+        <div className="h-full flex flex-shrink-0">
+          {/* 展开/折叠按钮 - 始终可见 */}
           <button
             onClick={onToggle}
-            className="w-5 h-12 bg-surface hover:bg-tabHover border border-border rounded-l-md flex items-center justify-center text-textSecondary hover:text-accent transition-all self-center flex-shrink-0 -mr-px z-10"
+            className="w-5 h-12 bg-surface hover:bg-tabHover border border-border rounded-l-md flex items-center justify-center text-textSecondary hover:text-accent transition-all self-center flex-shrink-0 z-10"
             title={collapsed ? '展开面板' : '折叠面板'}
           >
             {collapsed ? '‹' : '›'}
           </button>
+          <div className="h-full flex collapse-transition border-l border-border"
+            style={{ width: collapsed ? 0 : 280, minWidth: collapsed ? 0 : 280, overflow: 'hidden' }}>
           <div className="w-[280px] h-full flex flex-col bg-panel flex-shrink-0">
             <div className="px-4 py-3 border-b border-border flex-shrink-0">
               <h2 className="text-sm font-bold text-textPrimary">属性面板</h2>
@@ -2754,6 +2813,7 @@
               </button>
             </div>
           </div>
+          </div>{/* 折叠容器结束 */}
         </div>
       );
     }
@@ -4604,6 +4664,7 @@
       const [phone, setPhone] = useState('');
       const [email, setEmail] = useState('');
       const [password, setPassword] = useState('');
+      const [showPwd, setShowPwd] = useState(false);
       const [smsCode, setSmsCode] = useState('');
       const [smsSent, setSmsSent] = useState(false);
       const [smsDisplay, setSmsDisplay] = useState('');
@@ -4613,11 +4674,40 @@
       const [regPhone, setRegPhone] = useState('');
       const [regEmail, setRegEmail] = useState('');
       const [regPassword, setRegPassword] = useState('');
+      const [regConfirmPwd, setRegConfirmPwd] = useState('');
       const [regNickname, setRegNickname] = useState('');
+      const [showRegPwd, setShowRegPwd] = useState(false);
+      const [showRegConfirmPwd, setShowRegConfirmPwd] = useState(false);
       const [showCardKeyRecharge, setShowCardKeyRecharge] = useState(false);
       const [cardKeyInput, setCardKeyInput] = useState('');
       const [cardKeyError, setCardKeyError] = useState('');
       const [cardKeyActivating, setCardKeyActivating] = useState(false);
+      const [loginFailCount, setLoginFailCount] = useState(0);
+      const [captchaInput, setCaptchaInput] = useState('');
+      const [captchaDisplay, setCaptchaDisplay] = useState('');
+      const [showForgotPwd, setShowForgotPwd] = useState(false);
+      const [forgotStep, setForgotStep] = useState(1); // 1:输入手机号 2:输入验证码 3:输入新密码 4:成功
+      const [forgotPhone, setForgotPhone] = useState('');
+      const [forgotSmsCode, setForgotSmsCode] = useState('');
+      const [forgotSmsDisplay, setForgotSmsDisplay] = useState('');
+      const [forgotSmsSent, setForgotSmsSent] = useState(false);
+      const [forgotSmsCountdown, setForgotSmsCountdown] = useState(0);
+      const [forgotNewPwd, setForgotNewPwd] = useState('');
+      const [showForgotNewPwd, setShowForgotNewPwd] = useState(false);
+      const [showAgreement, setShowAgreement] = useState(null); // null | 'terms' | 'privacy'
+
+      /* 验证逻辑 */
+      const validateEmail = (v) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+      const validatePhone = (v) => !v || /^1\d{10}$/.test(v);
+      const validateNickname = (v) => !v || (v.length >= 2 && v.length <= 12);
+      const regPwdStrength = getPasswordStrength(regPassword);
+
+      /* 生成验证码 */
+      const generateCaptcha = () => {
+        const code = String(Math.floor(1000 + Math.random() * 9000));
+        setCaptchaDisplay(code);
+        return code;
+      };
 
       /* 发送验证码（模拟） */
       const handleSendSms = () => {
@@ -4635,17 +4725,49 @@
         }, 1000);
       };
 
+      /* 发送忘记密码验证码 */
+      const handleForgotSendSms = () => {
+        if (!forgotPhone || !/^1\d{10}$/.test(forgotPhone)) { onToast && onToast('请输入有效的11位手机号', 'error'); return; }
+        const code = String(Math.floor(100000 + Math.random() * 900000));
+        setForgotSmsDisplay(code);
+        setForgotSmsSent(true);
+        setForgotSmsCountdown(60);
+        onToast && onToast(`验证码已发送：${code}（模拟）`, 'success');
+        const timer = setInterval(() => {
+          setForgotSmsCountdown(prev => {
+            if (prev <= 1) { clearInterval(timer); return 0; }
+            return prev - 1;
+          });
+        }, 1000);
+      };
+
       /* 账号登录 */
       const handleAccountLogin = async () => {
         const account = email || phone;
         if (!account) { onToast && onToast('请输入手机号或邮箱', 'error'); return; }
         if (!password) { onToast && onToast('请输入密码', 'error'); return; }
+        // 登录失败3次后需要验证码
+        if (loginFailCount >= 3) {
+          if (!captchaInput) { onToast && onToast('请输入验证码', 'error'); return; }
+          if (captchaInput !== captchaDisplay) { onToast && onToast('验证码错误', 'error'); generateCaptcha(); return; }
+        }
         try {
           const users = await userStore.getItem('allUsers') || [];
           const user = users.find(u => u.phone === account || u.email === account);
-          if (!user) { onToast && onToast('账号不存在，请先注册', 'error'); return; }
-          if (user.password !== password) { onToast && onToast('密码错误', 'error'); return; }
-          await sessionStore.setItem('currentUser', { id: user.id, nickname: user.nickname, phone: user.phone, email: user.email });
+          if (!user) { onToast && onToast('账号不存在，请先注册', 'error'); setLoginFailCount(c => c + 1); return; }
+          const inputHash = CryptoJS.SHA256(password).toString();
+          if (user.passwordHash ? user.passwordHash !== inputHash : user.password !== password) {
+            onToast && onToast('密码错误', 'error');
+            setLoginFailCount(c => c + 1);
+            if (loginFailCount + 1 >= 3) generateCaptcha();
+            return;
+          }
+          // 记住我：7天免登录
+          if (rememberMe) {
+            await sessionStore.setItem('rememberMe', { account, expireAt: Date.now() + 7 * 24 * 3600 * 1000 });
+          }
+          await sessionStore.setItem('currentUser', { id: user.id, nickname: user.nickname, phone: user.phone, email: user.email, avatar: user.avatar });
+          setLoginFailCount(0);
           onToast && onToast(`欢迎回来，${user.nickname}！`, 'success');
           onLoginSuccess && onLoginSuccess(user);
         } catch (e) { onToast && onToast('登录失败，请重试', 'error'); }
@@ -4660,11 +4782,11 @@
           let users = await userStore.getItem('allUsers') || [];
           let user = users.find(u => u.phone === phone);
           if (!user) {
-            user = { id: 'u_' + Date.now(), phone, email: '', nickname: '用户' + phone.slice(-4), password: '', createdAt: Date.now() };
+            user = { id: 'u_' + Date.now(), phone, email: '', nickname: '用户' + phone.slice(-4), passwordHash: '', createdAt: Date.now() };
             users.push(user);
             await userStore.setItem('allUsers', users);
           }
-          await sessionStore.setItem('currentUser', { id: user.id, nickname: user.nickname, phone: user.phone, email: user.email });
+          await sessionStore.setItem('currentUser', { id: user.id, nickname: user.nickname, phone: user.phone, email: user.email, avatar: user.avatar });
           onToast && onToast(`欢迎，${user.nickname}！`, 'success');
           onLoginSuccess && onLoginSuccess(user);
         } catch (e) { onToast && onToast('登录失败，请重试', 'error'); }
@@ -4672,19 +4794,66 @@
 
       /* 注册 */
       const handleRegister = async () => {
+        if (!regNickname || !validateNickname(regNickname)) { onToast && onToast('昵称需要2-12个字符', 'error'); return; }
+        if (regPhone && !validatePhone(regPhone)) { onToast && onToast('手机号格式错误（需11位）', 'error'); return; }
+        if (regEmail && !validateEmail(regEmail)) { onToast && onToast('邮箱格式错误', 'error'); return; }
         if (!regPhone && !regEmail) { onToast && onToast('请输入手机号或邮箱', 'error'); return; }
         if (!regPassword || regPassword.length < 6) { onToast && onToast('密码至少6位', 'error'); return; }
-        if (!regNickname) { onToast && onToast('请输入昵称', 'error'); return; }
+        if (regPassword !== regConfirmPwd) { onToast && onToast('两次密码输入不一致', 'error'); return; }
         try {
           let users = await userStore.getItem('allUsers') || [];
           if (regPhone && users.find(u => u.phone === regPhone)) { onToast && onToast('该手机号已注册', 'error'); return; }
           if (regEmail && users.find(u => u.email === regEmail)) { onToast && onToast('该邮箱已注册', 'error'); return; }
-          const newUser = { id: 'u_' + Date.now(), phone: regPhone || '', email: regEmail || '', nickname: regNickname, password: regPassword, createdAt: Date.now() };
+          const passwordHash = CryptoJS.SHA256(regPassword).toString();
+          const newUser = { id: 'u_' + Date.now(), phone: regPhone || '', email: regEmail || '', nickname: regNickname, passwordHash, createdAt: Date.now() };
           users.push(newUser);
           await userStore.setItem('allUsers', users);
           onToast && onToast('注册成功！请登录', 'success');
           setShowRegister(false);
+          setRegPassword('');
+          setRegConfirmPwd('');
+          setRegNickname('');
+          setRegPhone('');
+          setRegEmail('');
         } catch (e) { onToast && onToast('注册失败，请重试', 'error'); }
+      };
+
+      /* 忘记密码 - 下一步 */
+      const handleForgotNext = async () => {
+        if (forgotStep === 1) {
+          if (!forgotPhone || !/^1\d{10}$/.test(forgotPhone)) { onToast && onToast('请输入有效的11位手机号', 'error'); return; }
+          const users = await userStore.getItem('allUsers') || [];
+          const user = users.find(u => u.phone === forgotPhone);
+          if (!user) { onToast && onToast('该手机号未注册', 'error'); return; }
+          setForgotStep(2);
+        } else if (forgotStep === 2) {
+          if (!forgotSmsCode || forgotSmsCode !== forgotSmsDisplay) { onToast && onToast('验证码错误', 'error'); return; }
+          setForgotStep(3);
+        } else if (forgotStep === 3) {
+          if (!forgotNewPwd || forgotNewPwd.length < 6) { onToast && onToast('密码至少6位', 'error'); return; }
+          try {
+            let users = await userStore.getItem('allUsers') || [];
+            const idx = users.findIndex(u => u.phone === forgotPhone);
+            if (idx >= 0) {
+              users[idx].passwordHash = CryptoJS.SHA256(forgotNewPwd).toString();
+              delete users[idx].password;
+              await userStore.setItem('allUsers', users);
+            }
+            setForgotStep(4);
+          } catch(e) { onToast && onToast('重置失败，请重试', 'error'); }
+        }
+      };
+
+      /* 关闭忘记密码弹窗 */
+      const closeForgotPwd = () => {
+        setShowForgotPwd(false);
+        setForgotStep(1);
+        setForgotPhone('');
+        setForgotSmsCode('');
+        setForgotSmsDisplay('');
+        setForgotSmsSent(false);
+        setForgotSmsCountdown(0);
+        setForgotNewPwd('');
       };
 
       /* 卡密充值 */
@@ -4781,18 +4950,36 @@
                 </div>
 
                 {loginTab === 'account' ? (
-                  <div className="space-y-3">
+                  <div className="space-y-3 tab-slide-in">
                     <input type="text" value={email || phone} onChange={e => { const v = e.target.value; if (v.includes('@')) setEmail(v); else { setPhone(v); setEmail(''); } }}
                       placeholder="手机号 / 邮箱" className="cyber-input w-full px-4 py-2.5 rounded-lg text-sm" />
-                    <input type="password" value={password} onChange={e => setPassword(e.target.value)}
-                      placeholder="密码" className="cyber-input w-full px-4 py-2.5 rounded-lg text-sm" />
+                    <div className="relative">
+                      <input type={showPwd ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)}
+                        placeholder="密码" className="cyber-input w-full px-4 py-2.5 rounded-lg text-sm" style={{ paddingRight: 36 }} />
+                      <span className="pwd-toggle-btn" onClick={() => setShowPwd(!showPwd)}>{showPwd ? '🙈' : '👁️'}</span>
+                    </div>
+                    {loginFailCount >= 3 && (
+                      <div className="fade-in">
+                        <div className="text-[10px] mb-1" style={{ color: '#ffa500' }}>⚠️ 登录失败{loginFailCount}次，请输入验证码</div>
+                        <div className="flex gap-2 items-center">
+                          <div className="px-3 py-2 rounded-lg text-sm font-bold tracking-widest select-none"
+                            style={{ background: 'rgba(0,255,136,0.08)', color: '#00ff88', border: '1px solid rgba(0,255,136,0.2)', letterSpacing: '4px', fontFamily: 'monospace' }}>
+                            {captchaDisplay}
+                          </div>
+                          <input type="text" value={captchaInput} onChange={e => setCaptchaInput(e.target.value)}
+                            placeholder="输入验证码" className="cyber-input flex-1 px-4 py-2.5 rounded-lg text-sm" maxLength={4} />
+                          <button onClick={() => generateCaptcha()} className="text-[10px]" style={{ color: '#5a5a7a' }}>换一个</button>
+                        </div>
+                      </div>
+                    )}
                     <div className="flex items-center justify-between">
                       <label className="flex items-center gap-2 cursor-pointer">
                         <input type="checkbox" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)}
                           className="w-3.5 h-3.5 rounded accent-green-500" />
-                        <span className="text-[11px]" style={{ color: '#5a5a7a' }}>记住我</span>
+                        <span className="text-[11px]" style={{ color: '#5a5a7a' }}>记住我（7天）</span>
                       </label>
-                      <span className="text-[11px] cursor-pointer hover:underline" style={{ color: 'var(--cyber-green)' }}>忘记密码？</span>
+                      <span className="text-[11px] cursor-pointer hover:underline" style={{ color: 'var(--cyber-green)' }}
+                        onClick={() => setShowForgotPwd(true)}>忘记密码？</span>
                     </div>
                     <button onClick={handleAccountLogin}
                       className="cyber-btn w-full py-2.5 rounded-lg text-sm font-bold text-black">
@@ -4800,10 +4987,13 @@
                     </button>
                   </div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-3 tab-slide-in">
+                    <input type="text" value={phone} onChange={e => setPhone(e.target.value)}
+                      placeholder="手机号（11位）" className="cyber-input w-full px-4 py-2.5 rounded-lg text-sm" maxLength={11} />
+                    {phone && !validatePhone(phone) && <p className="text-[10px] text-red-400">请输入11位手机号</p>}
                     <div className="flex gap-2">
-                      <input type="text" value={phone} onChange={e => setPhone(e.target.value)}
-                        placeholder="手机号" className="cyber-input flex-1 px-4 py-2.5 rounded-lg text-sm" />
+                      <input type="text" value={smsCode} onChange={e => setSmsCode(e.target.value)}
+                        placeholder="验证码" className="cyber-input flex-1 px-4 py-2.5 rounded-lg text-sm" maxLength={6} />
                       <button onClick={handleSendSms} disabled={smsCountdown > 0}
                         className="px-3 py-2 rounded-lg text-xs font-bold transition-all flex-shrink-0"
                         style={{ background: smsCountdown > 0 ? 'rgba(0,255,136,0.1)' : 'rgba(0,255,136,0.2)', color: smsCountdown > 0 ? '#5a5a7a' : '#00ff88', border: '1px solid rgba(0,255,136,0.2)' }}>
@@ -4815,8 +5005,6 @@
                         📱 模拟收到验证码：<b>{smsDisplay}</b>
                       </div>
                     )}
-                    <input type="text" value={smsCode} onChange={e => setSmsCode(e.target.value)}
-                      placeholder="验证码" className="cyber-input w-full px-4 py-2.5 rounded-lg text-sm" maxLength={6} />
                     <button onClick={handleSmsLogin}
                       className="cyber-btn w-full py-2.5 rounded-lg text-sm font-bold text-black">
                       登录
@@ -4824,12 +5012,14 @@
                   </div>
                 )}
 
-                {/* 卡密充值入口 */}
+                {/* 卡密充值入口 - 醒目按钮 */}
                 <div className="mt-4 pt-3" style={{ borderTop: '1px solid rgba(0,255,136,0.1)' }}>
-                  <span className="text-[11px] cursor-pointer hover:underline" style={{ color: '#5a5a7a' }}
-                    onClick={() => setShowCardKeyRecharge(true)}>
-                    🔑 使用卡密充值
-                  </span>
+                  <button onClick={() => setShowCardKeyRecharge(true)}
+                    className="w-full py-2 rounded-lg text-xs font-bold transition-all hover:scale-[1.02] active:scale-[0.98]"
+                    style={{ background: 'rgba(0,255,136,0.08)', color: '#00ff88', border: '1px dashed rgba(0,255,136,0.4)' }}>
+                    🔑 使用卡密充值算力
+                  </button>
+                  <p className="text-[9px] text-center mt-1" style={{ color: '#3a3a5a' }}>未登录也可充值，登录后自动关联</p>
                 </div>
 
                 {/* 其他登录方式 */}
@@ -4853,6 +5043,18 @@
                     立即注册
                   </span>
                 </div>
+
+                {/* 底部版权与协议 */}
+                <div className="mt-4 pt-3 text-center" style={{ borderTop: '1px solid rgba(0,255,136,0.06)' }}>
+                  <div className="flex justify-center gap-3 mb-1">
+                    <span className="text-[10px] cursor-pointer hover:underline" style={{ color: '#5a5a7a' }}
+                      onClick={() => setShowAgreement('terms')}>用户协议</span>
+                    <span className="text-[10px]" style={{ color: '#2a2a4a' }}>|</span>
+                    <span className="text-[10px] cursor-pointer hover:underline" style={{ color: '#5a5a7a' }}
+                      onClick={() => setShowAgreement('privacy')}>隐私政策</span>
+                  </div>
+                  <p className="text-[9px]" style={{ color: '#3a3a4a' }}>© 2026 收放漫 All rights reserved.</p>
+                </div>
               </div>
             </div>
           </div>
@@ -4862,24 +5064,126 @@
             <div className="fixed inset-0 z-[10001] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.7)' }}>
               <div className="fade-in rounded-2xl p-6 w-full max-w-sm mx-4" style={{ background: 'rgba(20,20,40,0.98)', border: '1px solid rgba(0,255,136,0.2)', boxShadow: '0 0 30px rgba(0,255,136,0.15)' }}>
                 <h3 className="text-lg font-bold mb-4" style={{ color: '#e8e8f0' }}>创建新账号</h3>
-                <div className="space-y-3">
-                  <input type="text" value={regNickname} onChange={e => setRegNickname(e.target.value)}
-                    placeholder="昵称" className="cyber-input w-full px-4 py-2.5 rounded-lg text-sm" />
-                  <input type="text" value={regPhone} onChange={e => setRegPhone(e.target.value)}
-                    placeholder="手机号（选填）" className="cyber-input w-full px-4 py-2.5 rounded-lg text-sm" />
-                  <input type="email" value={regEmail} onChange={e => setRegEmail(e.target.value)}
-                    placeholder="邮箱（选填）" className="cyber-input w-full px-4 py-2.5 rounded-lg text-sm" />
-                  <input type="password" value={regPassword} onChange={e => setRegPassword(e.target.value)}
-                    placeholder="密码（至少6位）" className="cyber-input w-full px-4 py-2.5 rounded-lg text-sm" />
+                <div className="space-y-3 tab-slide-in">
+                  <div>
+                    <input type="text" value={regNickname} onChange={e => setRegNickname(e.target.value)}
+                      placeholder="昵称（2-12个字符）" className="cyber-input w-full px-4 py-2.5 rounded-lg text-sm" maxLength={12} />
+                    {regNickname && !validateNickname(regNickname) && <p className="text-[10px] text-red-400 mt-1">昵称需要2-12个字符</p>}
+                  </div>
+                  <div>
+                    <input type="text" value={regPhone} onChange={e => setRegPhone(e.target.value.replace(/\D/g, '').slice(0, 11))}
+                      placeholder="手机号（选填）" className="cyber-input w-full px-4 py-2.5 rounded-lg text-sm" maxLength={11} />
+                    {regPhone && !validatePhone(regPhone) && <p className="text-[10px] text-red-400 mt-1">请输入11位手机号</p>}
+                  </div>
+                  <div>
+                    <input type="email" value={regEmail} onChange={e => setRegEmail(e.target.value)}
+                      placeholder="邮箱（选填）" className="cyber-input w-full px-4 py-2.5 rounded-lg text-sm" />
+                    {regEmail && !validateEmail(regEmail) && <p className="text-[10px] text-red-400 mt-1">邮箱格式不正确</p>}
+                  </div>
+                  <div>
+                    <div className="relative">
+                      <input type={showRegPwd ? 'text' : 'password'} value={regPassword} onChange={e => setRegPassword(e.target.value)}
+                        placeholder="密码（至少6位）" className="cyber-input w-full px-4 py-2.5 rounded-lg text-sm" style={{ paddingRight: 36 }} />
+                      <span className="pwd-toggle-btn" onClick={() => setShowRegPwd(!showRegPwd)}>{showRegPwd ? '🙈' : '👁️'}</span>
+                    </div>
+                    {regPassword && (
+                      <div className="mt-1.5">
+                        <div className="flex gap-1">
+                          {[1,2,3].map(lvl => (
+                            <div key={lvl} className="flex-1 h-1 rounded-full" style={{ background: regPwdStrength.level >= lvl ? regPwdStrength.color : 'rgba(90,90,122,0.3)', transition: 'background 0.3s' }} />
+                          ))}
+                        </div>
+                        <p className="text-[10px] mt-0.5" style={{ color: regPwdStrength.color }}>密码强度：{regPwdStrength.label}</p>
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <div className="relative">
+                      <input type={showRegConfirmPwd ? 'text' : 'password'} value={regConfirmPwd} onChange={e => setRegConfirmPwd(e.target.value)}
+                        placeholder="确认密码" className="cyber-input w-full px-4 py-2.5 rounded-lg text-sm" style={{ paddingRight: 36 }} />
+                      <span className="pwd-toggle-btn" onClick={() => setShowRegConfirmPwd(!showRegConfirmPwd)}>{showRegConfirmPwd ? '🙈' : '👁️'}</span>
+                    </div>
+                    {regConfirmPwd && regConfirmPwd !== regPassword && <p className="text-[10px] text-red-400 mt-1">两次密码输入不一致</p>}
+                  </div>
                   <button onClick={handleRegister}
                     className="cyber-btn w-full py-2.5 rounded-lg text-sm font-bold text-black">
                     注册
                   </button>
-                  <button onClick={() => setShowRegister(false)}
+                  <button onClick={() => { setShowRegister(false); setRegPassword(''); setRegConfirmPwd(''); }}
                     className="w-full py-2 rounded-lg text-xs" style={{ color: '#5a5a7a' }}>
                     返回登录
                   </button>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* 忘记密码弹窗 */}
+          {showForgotPwd && (
+            <div className="fixed inset-0 z-[10001] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.7)' }}>
+              <div className="fade-in rounded-2xl p-6 w-full max-w-sm mx-4" style={{ background: 'rgba(20,20,40,0.98)', border: '1px solid rgba(0,255,136,0.2)', boxShadow: '0 0 30px rgba(0,255,136,0.15)' }}>
+                <h3 className="text-lg font-bold mb-1" style={{ color: '#e8e8f0' }}>🔑 重置密码</h3>
+                {/* 步骤指示 */}
+                <div className="flex items-center gap-2 mb-4">
+                  {[1,2,3,4].map(s => (
+                    <React.Fragment key={s}>
+                      <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold"
+                        style={{ background: forgotStep >= s ? 'rgba(0,255,136,0.2)' : 'rgba(90,90,122,0.1)', color: forgotStep >= s ? '#00ff88' : '#5a5a7a', border: forgotStep >= s ? '1px solid rgba(0,255,136,0.3)' : '1px solid rgba(90,90,122,0.2)' }}>
+                        {forgotStep > s ? '✓' : s}
+                      </div>
+                      {s < 4 && <div className="flex-1 h-px" style={{ background: forgotStep > s ? 'rgba(0,255,136,0.3)' : 'rgba(90,90,122,0.2)' }} />}
+                    </React.Fragment>
+                  ))}
+                </div>
+                {forgotStep === 1 && (
+                  <div className="tab-slide-in space-y-3">
+                    <p className="text-xs" style={{ color: '#5a5a7a' }}>输入注册时使用的手机号</p>
+                    <input type="text" value={forgotPhone} onChange={e => setForgotPhone(e.target.value.replace(/\D/g, '').slice(0, 11))}
+                      placeholder="手机号" className="cyber-input w-full px-4 py-2.5 rounded-lg text-sm" maxLength={11} />
+                    <button onClick={handleForgotNext} className="cyber-btn w-full py-2.5 rounded-lg text-sm font-bold text-black">下一步</button>
+                  </div>
+                )}
+                {forgotStep === 2 && (
+                  <div className="tab-slide-in space-y-3">
+                    <p className="text-xs" style={{ color: '#5a5a7a' }}>输入收到的验证码</p>
+                    <div className="flex gap-2">
+                      <input type="text" value={forgotSmsCode} onChange={e => setForgotSmsCode(e.target.value)}
+                        placeholder="验证码" className="cyber-input flex-1 px-4 py-2.5 rounded-lg text-sm" maxLength={6} />
+                      <button onClick={handleForgotSendSms} disabled={forgotSmsCountdown > 0}
+                        className="px-3 py-2 rounded-lg text-xs font-bold flex-shrink-0"
+                        style={{ background: forgotSmsCountdown > 0 ? 'rgba(0,255,136,0.1)' : 'rgba(0,255,136,0.2)', color: forgotSmsCountdown > 0 ? '#5a5a7a' : '#00ff88', border: '1px solid rgba(0,255,136,0.2)' }}>
+                        {forgotSmsCountdown > 0 ? `${forgotSmsCountdown}s` : '发送'}
+                      </button>
+                    </div>
+                    {forgotSmsSent && forgotSmsDisplay && (
+                      <div className="text-[11px] px-3 py-1.5 rounded-lg" style={{ background: 'rgba(0,255,136,0.1)', color: '#00ff88' }}>
+                        📱 模拟收到验证码：<b>{forgotSmsDisplay}</b>
+                      </div>
+                    )}
+                    <button onClick={handleForgotNext} className="cyber-btn w-full py-2.5 rounded-lg text-sm font-bold text-black">验证</button>
+                  </div>
+                )}
+                {forgotStep === 3 && (
+                  <div className="tab-slide-in space-y-3">
+                    <p className="text-xs" style={{ color: '#5a5a7a' }}>设置新密码</p>
+                    <div className="relative">
+                      <input type={showForgotNewPwd ? 'text' : 'password'} value={forgotNewPwd} onChange={e => setForgotNewPwd(e.target.value)}
+                        placeholder="新密码（至少6位）" className="cyber-input w-full px-4 py-2.5 rounded-lg text-sm" style={{ paddingRight: 36 }} />
+                      <span className="pwd-toggle-btn" onClick={() => setShowForgotNewPwd(!showForgotNewPwd)}>{showForgotNewPwd ? '🙈' : '👁️'}</span>
+                    </div>
+                    <button onClick={handleForgotNext} className="cyber-btn w-full py-2.5 rounded-lg text-sm font-bold text-black">重置密码</button>
+                  </div>
+                )}
+                {forgotStep === 4 && (
+                  <div className="tab-slide-in text-center space-y-3">
+                    <div className="text-4xl">✅</div>
+                    <p className="text-sm font-bold" style={{ color: '#00ff88' }}>密码重置成功！</p>
+                    <button onClick={closeForgotPwd} className="cyber-btn w-full py-2.5 rounded-lg text-sm font-bold text-black">返回登录</button>
+                  </div>
+                )}
+                {forgotStep < 4 && (
+                  <button onClick={closeForgotPwd} className="w-full py-2 mt-2 rounded-lg text-xs" style={{ color: '#5a5a7a' }}>取消</button>
+                )}
               </div>
             </div>
           )}
@@ -4916,6 +5220,38 @@
                     </span>
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* 用户协议/隐私政策弹窗 */}
+          {showAgreement && (
+            <div className="fixed inset-0 z-[10001] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.7)' }}>
+              <div className="fade-in rounded-2xl p-6 w-full max-w-md mx-4 max-h-[70vh] overflow-y-auto" style={{ background: 'rgba(20,20,40,0.98)', border: '1px solid rgba(0,255,136,0.2)' }}>
+                <h3 className="text-base font-bold mb-4" style={{ color: '#e8e8f0' }}>{showAgreement === 'terms' ? '📋 用户协议' : '🔒 隐私政策'}</h3>
+                {showAgreement === 'terms' ? (
+                  <div className="text-xs leading-relaxed space-y-3" style={{ color: '#8888aa' }}>
+                    <p>欢迎使用「收放漫」AI漫剧制作平台。在使用本平台前，请仔细阅读以下协议：</p>
+                    <p><b style={{ color: '#e8e8f0' }}>1. 服务说明</b><br/>本平台提供AI辅助的漫剧剧本创作、画面生成、视频合成等功能。用户应自行承担创作内容的法律责任。</p>
+                    <p><b style={{ color: '#e8e8f0' }}>2. 账号安全</b><br/>用户应妥善保管账号密码，因用户自身原因导致的账号泄露，平台不承担责任。</p>
+                    <p><b style={{ color: '#e8e8f0' }}>3. 内容规范</b><br/>用户不得利用本平台创作违法、违规内容，包括但不限于涉政、涉黄、涉暴等内容。平台有权对违规内容进行拦截和删除。</p>
+                    <p><b style={{ color: '#e8e8f0' }}>4. 算力服务</b><br/>平台算力通过卡密充值获取，卡密一经激活不可退回。算力余额以系统记录为准。</p>
+                    <p><b style={{ color: '#e8e8f0' }}>5. 知识产权</b><br/>用户使用本平台创作的内容，其知识产权归用户所有。平台有权在脱敏后展示作品效果。</p>
+                  </div>
+                ) : (
+                  <div className="text-xs leading-relaxed space-y-3" style={{ color: '#8888aa' }}>
+                    <p>本隐私政策说明「收放漫」如何收集、使用和保护您的个人信息：</p>
+                    <p><b style={{ color: '#e8e8f0' }}>1. 信息收集</b><br/>我们收集您注册时提供的手机号、邮箱、昵称，以及使用过程中产生的项目数据。</p>
+                    <p><b style={{ color: '#e8e8f0' }}>2. 信息使用</b><br/>您的信息仅用于提供平台服务、账号安全和客户支持，不会出售给第三方。</p>
+                    <p><b style={{ color: '#e8e8f0' }}>3. 数据存储</b><br/>所有数据存储在您的浏览器本地（IndexedDB/localStorage），平台服务器不存储您的创作数据和密码。</p>
+                    <p><b style={{ color: '#e8e8f0' }}>4. 密码安全</b><br/>您的密码使用SHA256加密存储，平台无法查看您的明文密码。</p>
+                    <p><b style={{ color: '#e8e8f0' }}>5. 数据删除</b><br/>您可以随时清除浏览器数据来删除所有本地存储的信息。</p>
+                  </div>
+                )}
+                <button onClick={() => setShowAgreement(null)}
+                  className="w-full mt-4 py-2 rounded-lg text-xs font-bold" style={{ color: '#00ff88', background: 'rgba(0,255,136,0.1)', border: '1px solid rgba(0,255,136,0.2)' }}>
+                  我知道了
+                </button>
               </div>
             </div>
           )}
@@ -5014,6 +5350,26 @@
       const [balanceVersion, setBalanceVersion] = useState(0);
       const [userMenuOpen, setUserMenuOpen] = useState(false);
       const [logoutConfirm, setLogoutConfirm] = useState(false);
+      /* 新增状态 */
+      const [searchQuery, setSearchQuery] = useState('');
+      const [statusFilter, setStatusFilter] = useState('all');
+      const [sortBy, setSortBy] = useState('updatedAt');
+      const [renamingProjectId, setRenamingProjectId] = useState(null);
+      const [renameValue, setRenameValue] = useState('');
+      const [menuProjectId, setMenuProjectId] = useState(null);
+      /* 个人资料/修改密码/关于弹窗 */
+      const [showProfileEdit, setShowProfileEdit] = useState(false);
+      const [showChangePwd, setShowChangePwd] = useState(false);
+      const [showAbout, setShowAbout] = useState(false);
+      /* 修改密码状态 */
+      const [oldPwd, setOldPwd] = useState('');
+      const [newPwd, setNewPwd] = useState('');
+      const [confirmNewPwd, setConfirmNewPwd] = useState('');
+      /* 个人资料编辑状态 */
+      const [editNickname, setEditNickname] = useState('');
+      const [editAvatar, setEditAvatar] = useState('');
+
+      const PRESET_AVATARS = ['🎨', '🎭', '🎬', '🖌️', '✨', '🌟', '🎪', '🎵', '📕', '🚀'];
 
       useEffect(() => {
         (async () => {
@@ -5031,26 +5387,62 @@
       };
 
       const handleCreateProject = async (project) => {
-        const newList = [project, ...projects];
+        const newProject = { ...project, status: 'draft', sceneCount: 5 };
+        const newList = [newProject, ...projects];
         await persistProjects(newList);
-        // 初始化项目默认数据
         await saveProjectData(project.id, { scenes: INITIAL_SCENES, storyStyle: project.style });
         setCreateModalOpen(false);
         onToast && onToast(`项目「${project.name}」创建成功！`, 'success');
-        onOpenProject && onOpenProject(project);
+        onOpenProject && onOpenProject(newProject);
       };
 
       const handleDeleteProject = async (projectId) => {
         const project = projects.find(p => p.id === projectId);
         const newList = projects.filter(p => p.id !== projectId);
         await persistProjects(newList);
-        // 清理项目数据
         const keysToRemove = ['scenes', 'scriptText', 'storyStyle', 'plotRhythm', 'selectedSceneId', 'viewMode', 'apiMode'];
         for (const key of keysToRemove) {
           try { await workbenchStore.removeItem(getProjectDataKey(projectId, key)); } catch(e) {}
         }
         setDeleteConfirm(null);
         onToast && onToast(`项目「${project?.name}」已删除`, 'info');
+      };
+
+      /* 复制项目 */
+      const handleCopyProject = async (project) => {
+        const copied = { ...project, id: 'p_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6), name: project.name + '(副本)', status: 'draft', createdAt: Date.now(), updatedAt: Date.now() };
+        const newList = [copied, ...projects];
+        await persistProjects(newList);
+        // 深拷贝分镜数据
+        const srcData = await loadProjectData(project.id);
+        await saveProjectData(copied.id, srcData);
+        onToast && onToast(`项目「${project.name}」已复制`, 'success');
+        setMenuProjectId(null);
+      };
+
+      /* 重命名项目 */
+      const handleStartRename = (project) => {
+        setRenamingProjectId(project.id);
+        setRenameValue(project.name);
+        setMenuProjectId(null);
+      };
+      const handleFinishRename = async (projectId) => {
+        if (!renameValue.trim()) { setRenamingProjectId(null); return; }
+        const newList = projects.map(p => p.id === projectId ? { ...p, name: renameValue.trim(), updatedAt: Date.now() } : p);
+        await persistProjects(newList);
+        setRenamingProjectId(null);
+      };
+      const handleRenameKeyDown = (e, projectId) => {
+        if (e.key === 'Enter') handleFinishRename(projectId);
+        if (e.key === 'Escape') setRenamingProjectId(null);
+      };
+
+      /* 标记项目完成 */
+      const handleMarkDone = async (projectId) => {
+        const newList = projects.map(p => p.id === projectId ? { ...p, status: 'done', updatedAt: Date.now() } : p);
+        await persistProjects(newList);
+        onToast && onToast('项目已标记为已完成', 'success');
+        setMenuProjectId(null);
       };
 
       const handleBalanceChange = useCallback(() => {
@@ -5065,6 +5457,87 @@
         const d = new Date(ts);
         return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
       };
+
+      /* 筛选排序 */
+      const filteredProjects = useMemo(() => {
+        let list = [...projects];
+        if (searchQuery) {
+          const q = searchQuery.toLowerCase();
+          list = list.filter(p => p.name.toLowerCase().includes(q));
+        }
+        if (statusFilter !== 'all') {
+          const statusMap = { draft: 'draft', making: 'making', done: 'done' };
+          list = list.filter(p => (p.status || 'draft') === statusMap[statusFilter]);
+        }
+        list.sort((a, b) => {
+          if (sortBy === 'updatedAt') return (b.updatedAt || 0) - (a.updatedAt || 0);
+          if (sortBy === 'createdAt') return (b.createdAt || 0) - (a.createdAt || 0);
+          if (sortBy === 'name') return a.name.localeCompare(b.name, 'zh');
+          return 0;
+        });
+        return list;
+      }, [projects, searchQuery, statusFilter, sortBy]);
+
+      /* 统计 */
+      const stats = useMemo(() => ({
+        total: projects.length,
+        making: projects.filter(p => (p.status || 'draft') === 'making').length,
+        done: projects.filter(p => (p.status || 'draft') === 'done').length,
+      }), [projects]);
+
+      /* 修改密码 */
+      const handleChangePwd = async () => {
+        if (!oldPwd) { onToast && onToast('请输入旧密码', 'error'); return; }
+        if (!newPwd || newPwd.length < 6) { onToast && onToast('新密码至少6位', 'error'); return; }
+        if (newPwd !== confirmNewPwd) { onToast && onToast('两次密码输入不一致', 'error'); return; }
+        try {
+          let users = await userStore.getItem('allUsers') || [];
+          const idx = users.findIndex(u => u.id === currentUser?.id);
+          if (idx < 0) { onToast && onToast('用户不存在', 'error'); return; }
+          const oldHash = CryptoJS.SHA256(oldPwd).toString();
+          if (users[idx].passwordHash && users[idx].passwordHash !== oldHash) { onToast && onToast('旧密码错误', 'error'); return; }
+          if (!users[idx].passwordHash && users[idx].password !== oldPwd) { onToast && onToast('旧密码错误', 'error'); return; }
+          users[idx].passwordHash = CryptoJS.SHA256(newPwd).toString();
+          delete users[idx].password;
+          await userStore.setItem('allUsers', users);
+          onToast && onToast('密码修改成功', 'success');
+          setShowChangePwd(false);
+          setOldPwd(''); setNewPwd(''); setConfirmNewPwd('');
+        } catch(e) { onToast && onToast('修改失败', 'error'); }
+      };
+
+      /* 保存个人资料 */
+      const handleSaveProfile = async () => {
+        if (!editNickname.trim() || editNickname.trim().length < 2 || editNickname.trim().length > 12) {
+          onToast && onToast('昵称需要2-12个字符', 'error'); return;
+        }
+        try {
+          let users = await userStore.getItem('allUsers') || [];
+          const idx = users.findIndex(u => u.id === currentUser?.id);
+          if (idx >= 0) {
+            users[idx].nickname = editNickname.trim();
+            users[idx].avatar = editAvatar;
+            await userStore.setItem('allUsers', users);
+          }
+          const updatedUser = { ...currentUser, nickname: editNickname.trim(), avatar: editAvatar };
+          await sessionStore.setItem('currentUser', updatedUser);
+          onToast && onToast('个人资料已更新', 'success');
+          setShowProfileEdit(false);
+          // 通知App刷新currentUser - 通过重新设置sessionStore，App初始化时会读取
+          window.location.reload();
+        } catch(e) { onToast && onToast('保存失败', 'error'); }
+      };
+
+      /* 获取项目状态标签 */
+      const getStatusTag = (status) => {
+        const s = status || 'draft';
+        if (s === 'draft') return <span className="status-tag status-draft">● 草稿</span>;
+        if (s === 'making') return <span className="status-tag status-making">● 制作中</span>;
+        if (s === 'done') return <span className="status-tag status-done">● 已完成</span>;
+        return <span className="status-tag status-draft">● 草稿</span>;
+      };
+
+      const userAvatar = currentUser?.avatar || currentUser?.nickname?.charAt(0) || 'U';
 
       if (loading) {
         return (
@@ -5104,14 +5577,14 @@
                   onClick={() => setUserMenuOpen(!userMenuOpen)}>
                   <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold"
                     style={{ background: 'rgba(0,255,136,0.15)', color: '#00ff88', border: '1px solid rgba(0,255,136,0.3)' }}>
-                    {currentUser?.nickname?.charAt(0) || 'U'}
+                    {PRESET_AVATARS.includes(userAvatar) ? userAvatar : (currentUser?.nickname?.charAt(0) || 'U')}
                   </div>
                   <span className="text-xs hidden sm:inline" style={{ color: '#e8e8f0' }}>{currentUser?.nickname || '用户'}</span>
                   <span className="text-[10px]" style={{ color: '#5a5a7a' }}>▼</span>
                 </div>
                 {userMenuOpen && (
                   <>
-                    <div className="fixed inset-0" onClick={() => setUserMenuOpen(false)} />
+                    <div className="fixed inset-0" onClick={() => { setUserMenuOpen(false); setMenuProjectId(null); }} />
                     <div className="absolute right-0 top-full mt-2 w-64 rounded-xl overflow-hidden fade-in"
                       style={{ background: 'rgba(20,20,40,0.98)', border: '1px solid rgba(0,255,136,0.15)', boxShadow: '0 0 30px rgba(0,0,0,0.5)' }}>
                       {/* 用户信息卡片 */}
@@ -5119,7 +5592,7 @@
                         <div className="flex items-center gap-3 mb-3">
                           <div className="w-11 h-11 rounded-full flex items-center justify-center text-lg font-bold"
                             style={{ background: 'rgba(0,255,136,0.15)', color: '#00ff88', border: '2px solid rgba(0,255,136,0.3)' }}>
-                            {currentUser?.nickname?.charAt(0) || 'U'}
+                            {PRESET_AVATARS.includes(userAvatar) ? userAvatar : (currentUser?.nickname?.charAt(0) || 'U')}
                           </div>
                           <div>
                             <div className="text-sm font-bold" style={{ color: '#e8e8f0' }}>{currentUser?.nickname || '用户'}</div>
@@ -5151,6 +5624,20 @@
                       </div>
                       {/* 菜单项 */}
                       <div className="p-2">
+                        <button onClick={() => { setUserMenuOpen(false); setEditNickname(currentUser?.nickname || ''); setEditAvatar(currentUser?.avatar || ''); setShowProfileEdit(true); }}
+                          className="w-full text-left px-3 py-2 rounded-lg text-xs flex items-center gap-2 transition-all"
+                          style={{ color: '#e8e8f0' }}
+                          onMouseEnter={e => e.target.style.background = 'rgba(0,255,136,0.05)'}
+                          onMouseLeave={e => e.target.style.background = 'transparent'}>
+                          <span>👤</span> 个人资料
+                        </button>
+                        <button onClick={() => { setUserMenuOpen(false); setShowChangePwd(true); }}
+                          className="w-full text-left px-3 py-2 rounded-lg text-xs flex items-center gap-2 transition-all"
+                          style={{ color: '#e8e8f0' }}
+                          onMouseEnter={e => e.target.style.background = 'rgba(0,255,136,0.05)'}
+                          onMouseLeave={e => e.target.style.background = 'transparent'}>
+                          <span>🔑</span> 修改密码
+                        </button>
                         <button onClick={() => { setUserMenuOpen(false); setRechargeOpen(true); }}
                           className="w-full text-left px-3 py-2 rounded-lg text-xs flex items-center gap-2 transition-all"
                           style={{ color: '#e8e8f0' }}
@@ -5158,6 +5645,14 @@
                           onMouseLeave={e => e.target.style.background = 'transparent'}>
                           <span>💳</span> 卡密充值
                         </button>
+                        <button onClick={() => { setUserMenuOpen(false); setShowAbout(true); }}
+                          className="w-full text-left px-3 py-2 rounded-lg text-xs flex items-center gap-2 transition-all"
+                          style={{ color: '#e8e8f0' }}
+                          onMouseEnter={e => e.target.style.background = 'rgba(0,255,136,0.05)'}
+                          onMouseLeave={e => e.target.style.background = 'transparent'}>
+                          <span>ℹ️</span> 关于收放漫
+                        </button>
+                        <div className="my-1" style={{ borderTop: '1px solid rgba(0,255,136,0.06)' }} />
                         <button onClick={() => { setUserMenuOpen(false); setLogoutConfirm(true); }}
                           className="w-full text-left px-3 py-2 rounded-lg text-xs flex items-center gap-2 transition-all"
                           style={{ color: '#e74c3c' }}
@@ -5176,12 +5671,50 @@
           {/* 主内容 */}
           <div className="flex-1 overflow-y-auto p-4 lg:p-8">
             <div className="max-w-6xl mx-auto">
-              <h2 className="text-2xl font-bold mb-6 slide-up" style={{ color: '#e8e8f0' }}>
-                我的项目
-              </h2>
+              {/* 统计概览 */}
+              <div className="grid grid-cols-3 gap-3 mb-6">
+                <div className="stat-card">
+                  <div className="text-[10px] mb-1" style={{ color: '#5a5a7a' }}>项目总数</div>
+                  <div className="text-2xl font-black" style={{ color: '#e8e8f0' }}>{stats.total}</div>
+                </div>
+                <div className="stat-card">
+                  <div className="text-[10px] mb-1" style={{ color: '#5a5a7a' }}>制作中</div>
+                  <div className="text-2xl font-black" style={{ color: '#ffa500' }}>{stats.making}</div>
+                </div>
+                <div className="stat-card">
+                  <div className="text-[10px] mb-1" style={{ color: '#5a5a7a' }}>已完成</div>
+                  <div className="text-2xl font-black" style={{ color: '#00b894' }}>{stats.done}</div>
+                </div>
+              </div>
+
+              {/* 搜索和筛选栏 */}
+              <div className="flex flex-wrap items-center gap-3 mb-5">
+                <h2 className="text-2xl font-bold" style={{ color: '#e8e8f0' }}>
+                  我的项目
+                </h2>
+                <div className="flex-1" />
+                <div className="flex items-center gap-2">
+                  <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+                    placeholder="🔍 搜索项目名..."
+                    className="cyber-input px-3 py-1.5 rounded-lg text-xs w-36 lg:w-48" />
+                  <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+                    className="cyber-input px-3 py-1.5 rounded-lg text-xs cursor-pointer">
+                    <option value="all">全部状态</option>
+                    <option value="draft">草稿</option>
+                    <option value="making">制作中</option>
+                    <option value="done">已完成</option>
+                  </select>
+                  <select value={sortBy} onChange={e => setSortBy(e.target.value)}
+                    className="cyber-input px-3 py-1.5 rounded-lg text-xs cursor-pointer">
+                    <option value="updatedAt">最近编辑</option>
+                    <option value="createdAt">创建时间</option>
+                    <option value="name">名称排序</option>
+                  </select>
+                </div>
+              </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-5">
-                {/* 新建项目卡片 - 始终显示，大且醒目 */}
+                {/* 新建项目卡片 - 始终显示 */}
                 <div onClick={() => setCreateModalOpen(true)}
                   className="new-project-card rounded-xl p-8 cursor-pointer flex flex-col items-center justify-center min-h-[240px]">
                   <div className="w-14 h-14 rounded-xl flex items-center justify-center mb-4"
@@ -5192,33 +5725,83 @@
                   <div className="text-xs" style={{ color: '#5a7a6a' }}>开始你的漫剧创作</div>
                 </div>
 
+                {/* 空状态（无项目时） */}
+                {projects.length === 0 && (
+                  <div className="col-span-full flex flex-col items-center justify-center py-16">
+                    <div className="text-6xl mb-6">🎬</div>
+                    <p className="text-lg font-bold mb-2" style={{ color: '#e8e8f0' }}>创建你的第一个漫剧项目</p>
+                    <p className="text-sm mb-6" style={{ color: '#5a5a7a' }}>从左侧的"新建项目"开始你的AI漫剧创作之旅</p>
+                    <button onClick={() => setCreateModalOpen(true)}
+                      className="cyber-btn px-8 py-3 rounded-xl text-sm font-bold text-black">
+                      ✨ 立即创建
+                    </button>
+                  </div>
+                )}
+
                 {/* 已有项目卡片 */}
-                {projects.map((project, idx) => (
+                {filteredProjects.map((project) => (
                   <div key={project.id}
-                    className="project-card rounded-xl overflow-hidden cursor-pointer"
+                    className="project-card rounded-xl overflow-hidden cursor-pointer relative"
                     style={{ background: 'rgba(20,20,40,0.8)' }}
-                    onClick={() => onOpenProject && onOpenProject(project)}>
+                    onClick={() => { if (renamingProjectId !== project.id) onOpenProject && onOpenProject(project); }}>
                     {/* 封面区 */}
                     <div className="h-32 relative" style={{ background: `linear-gradient(135deg, rgba(0,255,136,0.08) 0%, rgba(0,204,106,0.03) 100%)` }}>
                       <div className="absolute inset-0 flex items-center justify-center">
                         <div className="text-4xl opacity-30">🎬</div>
                       </div>
+                      {/* 状态标签 */}
+                      <div className="absolute top-2 left-2">
+                        {getStatusTag(project.status)}
+                      </div>
                       {/* 风格标签 */}
-                      <div className="absolute top-2 left-2 px-2 py-0.5 rounded text-[10px] font-bold"
+                      <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded text-[10px] font-bold"
                         style={{ background: 'rgba(0,255,136,0.15)', color: '#00ff88', border: '1px solid rgba(0,255,136,0.2)' }}>
                         {project.style}
                       </div>
-                      <div className="absolute top-2 right-2 px-2 py-0.5 rounded text-[10px]"
+                      <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded text-[10px]"
                         style={{ background: 'rgba(0,0,0,0.5)', color: '#5a5a7a' }}>
                         {project.aspect}
+                      </div>
+                      {/* 三点菜单 */}
+                      <div className="project-card-menu" onClick={e => e.stopPropagation()}>
+                        <button className="project-card-menu-btn"
+                          onClick={() => setMenuProjectId(menuProjectId === project.id ? null : project.id)}>
+                          ⋮
+                        </button>
+                        {menuProjectId === project.id && (
+                          <div className="project-card-dropdown fade-in">
+                            <button onClick={() => { onOpenProject && onOpenProject(project); setMenuProjectId(null); }}>✏️ 编辑</button>
+                            <button onClick={() => handleCopyProject(project)}>📋 复制</button>
+                            <button onClick={() => handleStartRename(project)}>🏷️ 重命名</button>
+                            {(project.status || 'draft') !== 'done' && (
+                              <button onClick={() => handleMarkDone(project.id)}>✅ 标记完成</button>
+                            )}
+                            <button onClick={() => { setDeleteConfirm(project.id); setMenuProjectId(null); }} style={{ color: '#e74c3c' }}>🗑️ 删除</button>
+                          </div>
+                        )}
                       </div>
                     </div>
                     {/* 信息区 */}
                     <div className="p-3">
-                      <h4 className="text-sm font-bold truncate mb-1" style={{ color: '#e8e8f0' }}>{project.name}</h4>
-                      <p className="text-[10px] mb-2" style={{ color: '#5a5a7a' }}>
-                        最后编辑：{formatTime(project.updatedAt)}
-                      </p>
+                      {renamingProjectId === project.id ? (
+                        <input className="rename-input mb-1" value={renameValue}
+                          onChange={e => setRenameValue(e.target.value)}
+                          onKeyDown={e => handleRenameKeyDown(e, project.id)}
+                          onBlur={() => handleFinishRename(project.id)}
+                          onClick={e => e.stopPropagation()}
+                          autoFocus />
+                      ) : (
+                        <h4 className="text-sm font-bold truncate mb-1" style={{ color: '#e8e8f0' }}>{project.name}</h4>
+                      )}
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-[10px]" style={{ color: '#5a5a7a' }}>
+                          {(project.sceneCount || 0)}镜
+                        </span>
+                        <span className="text-[10px]" style={{ color: '#2a2a4a' }}>·</span>
+                        <span className="text-[10px]" style={{ color: '#5a5a7a' }}>
+                          {formatTime(project.createdAt)}
+                        </span>
+                      </div>
                       <div className="flex gap-2" onClick={e => e.stopPropagation()}>
                         <button onClick={() => onOpenProject && onOpenProject(project)}
                           className="flex-1 py-1.5 rounded-lg text-[11px] font-bold transition-all hover:scale-105"
@@ -5234,6 +5817,14 @@
                     </div>
                   </div>
                 ))}
+
+                {/* 搜索无结果 */}
+                {projects.length > 0 && filteredProjects.length === 0 && (
+                  <div className="col-span-full flex flex-col items-center justify-center py-12">
+                    <div className="text-4xl mb-4">🔍</div>
+                    <p className="text-sm" style={{ color: '#5a5a7a' }}>没有找到匹配的项目</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -5267,6 +5858,125 @@
                       确认删除
                     </button>
                   </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 退出确认弹窗 */}
+          {logoutConfirm && (
+            <div className="fixed inset-0 z-[10001] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.7)' }}>
+              <div className="fade-in rounded-2xl p-6 w-full max-w-xs mx-4" style={{ background: 'rgba(20,20,40,0.98)', border: '1px solid rgba(231,76,60,0.3)', boxShadow: '0 0 30px rgba(231,76,60,0.1)' }}>
+                <div className="text-center">
+                  <div className="text-4xl mb-3">🚪</div>
+                  <h3 className="text-base font-bold mb-2" style={{ color: '#e8e8f0' }}>确认退出登录？</h3>
+                  <p className="text-xs mb-4" style={{ color: '#5a5a7a' }}>退出后需要重新登录才能使用</p>
+                  <div className="flex gap-3">
+                    <button onClick={() => setLogoutConfirm(false)}
+                      className="flex-1 py-2 rounded-lg text-xs" style={{ color: '#5a5a7a', background: 'rgba(13,13,26,0.8)', border: '1px solid rgba(0,255,136,0.1)' }}>
+                      取消
+                    </button>
+                    <button onClick={async () => { setLogoutConfirm(false); await sessionStore.removeItem('currentUser'); onLogout && onLogout(); }}
+                      className="flex-1 py-2 rounded-lg text-xs font-bold text-white"
+                      style={{ background: 'linear-gradient(135deg, #e74c3c, #c0392b)' }}>
+                      确认退出
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 个人资料编辑弹窗 */}
+          {showProfileEdit && (
+            <div className="fixed inset-0 z-[10001] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.7)' }}>
+              <div className="fade-in rounded-2xl p-6 w-full max-w-sm mx-4" style={{ background: 'rgba(20,20,40,0.98)', border: '1px solid rgba(0,255,136,0.2)', boxShadow: '0 0 30px rgba(0,255,136,0.15)' }}>
+                <h3 className="text-lg font-bold mb-4" style={{ color: '#e8e8f0' }}>👤 个人资料</h3>
+                <div className="space-y-4">
+                  {/* 头像选择 */}
+                  <div>
+                    <label className="text-xs block mb-2" style={{ color: '#5a5a7a' }}>选择头像</label>
+                    <div className="flex flex-wrap gap-2">
+                      {PRESET_AVATARS.map(av => (
+                        <button key={av} onClick={() => setEditAvatar(av)}
+                          className="w-10 h-10 rounded-full flex items-center justify-center text-lg transition-all hover:scale-110"
+                          style={{ background: editAvatar === av ? 'rgba(0,255,136,0.2)' : 'rgba(13,13,26,0.8)', border: editAvatar === av ? '2px solid #00ff88' : '1px solid rgba(0,255,136,0.1)' }}>
+                          {av}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {/* 昵称 */}
+                  <div>
+                    <label className="text-xs block mb-1.5" style={{ color: '#5a5a7a' }}>昵称</label>
+                    <input type="text" value={editNickname} onChange={e => setEditNickname(e.target.value)}
+                      placeholder="昵称（2-12个字符）" className="cyber-input w-full px-4 py-2.5 rounded-lg text-sm" maxLength={12} />
+                  </div>
+                  {/* 手机号（只读） */}
+                  <div>
+                    <label className="text-xs block mb-1.5" style={{ color: '#5a5a7a' }}>手机号（不可修改）</label>
+                    <input type="text" value={currentUser?.phone || '未绑定'} readOnly
+                      className="cyber-input w-full px-4 py-2.5 rounded-lg text-sm opacity-50 cursor-not-allowed" />
+                  </div>
+                  {/* 邮箱（只读） */}
+                  <div>
+                    <label className="text-xs block mb-1.5" style={{ color: '#5a5a7a' }}>邮箱（不可修改）</label>
+                    <input type="text" value={currentUser?.email || '未绑定'} readOnly
+                      className="cyber-input w-full px-4 py-2.5 rounded-lg text-sm opacity-50 cursor-not-allowed" />
+                  </div>
+                  <div className="flex gap-3 pt-2">
+                    <button onClick={handleSaveProfile}
+                      className="cyber-btn flex-1 py-2.5 rounded-lg text-sm font-bold text-black">保存</button>
+                    <button onClick={() => setShowProfileEdit(false)}
+                      className="px-6 py-2.5 rounded-lg text-xs" style={{ color: '#5a5a7a', background: 'rgba(13,13,26,0.8)', border: '1px solid rgba(0,255,136,0.1)' }}>取消</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 修改密码弹窗 */}
+          {showChangePwd && (
+            <div className="fixed inset-0 z-[10001] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.7)' }}>
+              <div className="fade-in rounded-2xl p-6 w-full max-w-sm mx-4" style={{ background: 'rgba(20,20,40,0.98)', border: '1px solid rgba(0,255,136,0.2)', boxShadow: '0 0 30px rgba(0,255,136,0.15)' }}>
+                <h3 className="text-lg font-bold mb-4" style={{ color: '#e8e8f0' }}>🔑 修改密码</h3>
+                <div className="space-y-3">
+                  <input type="password" value={oldPwd} onChange={e => setOldPwd(e.target.value)}
+                    placeholder="旧密码" className="cyber-input w-full px-4 py-2.5 rounded-lg text-sm" />
+                  <input type="password" value={newPwd} onChange={e => setNewPwd(e.target.value)}
+                    placeholder="新密码（至少6位）" className="cyber-input w-full px-4 py-2.5 rounded-lg text-sm" />
+                  <input type="password" value={confirmNewPwd} onChange={e => setConfirmNewPwd(e.target.value)}
+                    placeholder="确认新密码" className="cyber-input w-full px-4 py-2.5 rounded-lg text-sm" />
+                  {confirmNewPwd && confirmNewPwd !== newPwd && <p className="text-[10px] text-red-400">两次密码输入不一致</p>}
+                  <div className="flex gap-3 pt-2">
+                    <button onClick={handleChangePwd}
+                      className="cyber-btn flex-1 py-2.5 rounded-lg text-sm font-bold text-black">确认修改</button>
+                    <button onClick={() => { setShowChangePwd(false); setOldPwd(''); setNewPwd(''); setConfirmNewPwd(''); }}
+                      className="px-6 py-2.5 rounded-lg text-xs" style={{ color: '#5a5a7a', background: 'rgba(13,13,26,0.8)', border: '1px solid rgba(0,255,136,0.1)' }}>取消</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 关于收放漫弹窗 */}
+          {showAbout && (
+            <div className="fixed inset-0 z-[10001] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.7)' }}>
+              <div className="fade-in rounded-2xl p-6 w-full max-w-sm mx-4" style={{ background: 'rgba(20,20,40,0.98)', border: '1px solid rgba(0,255,136,0.2)', boxShadow: '0 0 30px rgba(0,255,136,0.15)' }}>
+                <div className="text-center">
+                  <h1 className="text-3xl font-black mb-1" style={{ color: '#e8e8f0' }}>
+                    收放<span style={{ color: '#00ff88' }}>漫</span>
+                  </h1>
+                  <p className="text-xs mb-4" style={{ color: '#5a5a7a' }}>AI漫剧一键制作平台</p>
+                  <div className="space-y-2 text-xs text-left p-4 rounded-lg" style={{ background: 'rgba(13,13,26,0.8)', color: '#8888aa' }}>
+                    <p><b style={{ color: '#e8e8f0' }}>版本</b>：v1.0.0</p>
+                    <p><b style={{ color: '#e8e8f0' }}>平台介绍</b>：收放漫是一款基于AI技术的漫剧制作工具，支持剧本创作、AI拆镜、画面生成、视频合成、智能配音等全流程创作。</p>
+                    <p><b style={{ color: '#e8e8f0' }}>联系方式</b>：support@shoufangman.com</p>
+                  </div>
+                  <button onClick={() => setShowAbout(false)}
+                    className="w-full mt-4 py-2 rounded-lg text-xs font-bold" style={{ color: '#00ff88', background: 'rgba(0,255,136,0.1)', border: '1px solid rgba(0,255,136,0.2)' }}>
+                    关闭
+                  </button>
                 </div>
               </div>
             </div>
@@ -5444,9 +6154,9 @@
           data = { scenes: [], scriptText: '', storyStyle: project.style || '玄幻修仙', plotRhythm: '标准推进', selectedSceneId: 1, viewMode: 'timeline' };
         }
 
-        // 更新项目最后编辑时间
+        // 更新项目最后编辑时间 & 状态变为制作中
         const projectList = await projectStore.getItem('projectList') || [];
-        const updatedList = projectList.map(p => p.id === project.id ? { ...p, updatedAt: Date.now() } : p);
+        const updatedList = projectList.map(p => p.id === project.id ? { ...p, updatedAt: Date.now(), status: 'making' } : p);
         await projectStore.setItem('projectList', updatedList);
 
         if (data.scenes.length > 0) {
@@ -5605,7 +6315,7 @@
       return (
         <div className="h-screen w-screen flex overflow-hidden">
           <LeftPanel collapsed={leftCollapsed} onToggle={() => setLeftCollapsed(!leftCollapsed)} onToast={addToast} scenes={scenes} onUpdateScenes={handleUpdateScenes} onRequestPassword={requestPassword} onShowSensitiveAlert={handleShowSensitiveAlert} onShowRecharge={handleShowRecharge} onBalanceChange={handleBalanceChange} projectId={currentProject?.id} />
-          <CenterCanvas scenes={scenes} onUpdateScene={handleUpdateScene} onToast={addToast} onOpenExport={() => setExportModalOpen(true)} onOpenApiConfig={() => setApiConfigModalOpen(true)} balanceVersion={balanceVersion} onShowSensitiveAlert={handleShowSensitiveAlert} onShowRecharge={handleShowRecharge} onBalanceChange={handleBalanceChange} onOpenApiConfigFromRecharge={handleOpenApiConfigFromRecharge} currentProject={currentProject} onBackToProjects={handleBackToProjects} />
+          <CenterCanvas scenes={scenes} onUpdateScene={handleUpdateScene} onToast={addToast} onOpenExport={() => setExportModalOpen(true)} onOpenApiConfig={() => setApiConfigModalOpen(true)} balanceVersion={balanceVersion} onShowSensitiveAlert={handleShowSensitiveAlert} onShowRecharge={handleShowRecharge} onBalanceChange={handleBalanceChange} onOpenApiConfigFromRecharge={handleOpenApiConfigFromRecharge} currentProject={currentProject} onBackToProjects={handleBackToProjects} currentUser={currentUser} />
           <RightPanel collapsed={rightCollapsed} onToggle={() => setRightCollapsed(!rightCollapsed)} />
           <ToastContainer toasts={toasts} />
           <ExportModal open={exportModalOpen} onClose={() => setExportModalOpen(false)} onToast={addToast} scenes={scenes} onStartRender={handleStartRender} />
