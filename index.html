@@ -308,13 +308,16 @@
       transform: translateY(-2px);
     }
     .new-project-card {
-      border: 2px dashed rgba(0,255,136,0.3);
+      border: 2px dashed rgba(0,255,136,0.6);
+      background: rgba(0,255,136,0.05) !important;
       transition: all 0.3s ease;
       animation: borderGlow 3s ease-in-out infinite;
     }
     .new-project-card:hover {
       border-color: var(--cyber-green);
-      box-shadow: 0 0 25px rgba(0,255,136,0.2);
+      background: rgba(0,255,136,0.1) !important;
+      box-shadow: 0 0 30px rgba(0,255,136,0.25);
+      transform: translateY(-3px);
     }
   </style>
 </head>
@@ -5009,6 +5012,8 @@
       const [rechargeOpen, setRechargeOpen] = useState(false);
       const [deleteConfirm, setDeleteConfirm] = useState(null);
       const [balanceVersion, setBalanceVersion] = useState(0);
+      const [userMenuOpen, setUserMenuOpen] = useState(false);
+      const [logoutConfirm, setLogoutConfirm] = useState(false);
 
       useEffect(() => {
         (async () => {
@@ -5092,19 +5097,79 @@
                 title="点击充值">
                 ⚡ 算力余额：{currentPoints} 点
               </span>
-              {/* 用户信息 */}
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
-                  style={{ background: 'rgba(0,255,136,0.15)', color: '#00ff88', border: '1px solid rgba(0,255,136,0.3)' }}>
-                  {currentUser?.nickname?.charAt(0) || 'U'}
+              {/* 用户信息 - 下拉菜单 */}
+              <div className="relative" style={{ zIndex: 100 }}>
+                <div className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded-lg transition-all hover:scale-105"
+                  style={{ background: 'rgba(0,255,136,0.05)' }}
+                  onClick={() => setUserMenuOpen(!userMenuOpen)}>
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold"
+                    style={{ background: 'rgba(0,255,136,0.15)', color: '#00ff88', border: '1px solid rgba(0,255,136,0.3)' }}>
+                    {currentUser?.nickname?.charAt(0) || 'U'}
+                  </div>
+                  <span className="text-xs hidden sm:inline" style={{ color: '#e8e8f0' }}>{currentUser?.nickname || '用户'}</span>
+                  <span className="text-[10px]" style={{ color: '#5a5a7a' }}>▼</span>
                 </div>
-                <span className="text-xs hidden sm:inline" style={{ color: '#8888aa' }}>{currentUser?.nickname || '用户'}</span>
+                {userMenuOpen && (
+                  <>
+                    <div className="fixed inset-0" onClick={() => setUserMenuOpen(false)} />
+                    <div className="absolute right-0 top-full mt-2 w-64 rounded-xl overflow-hidden fade-in"
+                      style={{ background: 'rgba(20,20,40,0.98)', border: '1px solid rgba(0,255,136,0.15)', boxShadow: '0 0 30px rgba(0,0,0,0.5)' }}>
+                      {/* 用户信息卡片 */}
+                      <div className="p-4" style={{ borderBottom: '1px solid rgba(0,255,136,0.08)' }}>
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="w-11 h-11 rounded-full flex items-center justify-center text-lg font-bold"
+                            style={{ background: 'rgba(0,255,136,0.15)', color: '#00ff88', border: '2px solid rgba(0,255,136,0.3)' }}>
+                            {currentUser?.nickname?.charAt(0) || 'U'}
+                          </div>
+                          <div>
+                            <div className="text-sm font-bold" style={{ color: '#e8e8f0' }}>{currentUser?.nickname || '用户'}</div>
+                            <div className="text-[10px]" style={{ color: '#5a5a7a' }}>ID: {currentUser?.id?.substring(0,8) || '—'}</div>
+                          </div>
+                        </div>
+                        <div className="space-y-1.5 text-[11px]">
+                          <div className="flex justify-between">
+                            <span style={{ color: '#5a5a7a' }}>手机号</span>
+                            <span style={{ color: '#8888aa' }}>{currentUser?.phone || '未绑定'}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span style={{ color: '#5a5a7a' }}>邮箱</span>
+                            <span style={{ color: '#8888aa' }}>{currentUser?.email || '未绑定'}</span>
+                          </div>
+                        </div>
+                      </div>
+                      {/* 算力余额 */}
+                      <div className="p-3 flex items-center justify-between" style={{ borderBottom: '1px solid rgba(0,255,136,0.08)' }}>
+                        <div>
+                          <div className="text-[10px]" style={{ color: '#5a5a7a' }}>算力余额</div>
+                          <div className="text-lg font-black" style={{ color: '#00ff88' }}>{currentPoints} <span className="text-[10px] font-normal">点</span></div>
+                        </div>
+                        <button onClick={() => { setUserMenuOpen(false); setRechargeOpen(true); }}
+                          className="px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all hover:scale-105"
+                          style={{ background: 'linear-gradient(135deg, #00ff88, #00cc6a)', color: '#0a0a1a' }}>
+                          充值
+                        </button>
+                      </div>
+                      {/* 菜单项 */}
+                      <div className="p-2">
+                        <button onClick={() => { setUserMenuOpen(false); setRechargeOpen(true); }}
+                          className="w-full text-left px-3 py-2 rounded-lg text-xs flex items-center gap-2 transition-all"
+                          style={{ color: '#e8e8f0' }}
+                          onMouseEnter={e => e.target.style.background = 'rgba(0,255,136,0.05)'}
+                          onMouseLeave={e => e.target.style.background = 'transparent'}>
+                          <span>💳</span> 卡密充值
+                        </button>
+                        <button onClick={() => { setUserMenuOpen(false); setLogoutConfirm(true); }}
+                          className="w-full text-left px-3 py-2 rounded-lg text-xs flex items-center gap-2 transition-all"
+                          style={{ color: '#e74c3c' }}
+                          onMouseEnter={e => e.target.style.background = 'rgba(231,76,60,0.05)'}
+                          onMouseLeave={e => e.target.style.background = 'transparent'}>
+                          <span>🚪</span> 退出登录
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
-              <button onClick={onLogout}
-                className="text-[11px] px-3 py-1 rounded-lg transition-all hover:scale-105"
-                style={{ background: 'rgba(231,76,60,0.1)', border: '1px solid rgba(231,76,60,0.2)', color: '#e74c3c' }}>
-                退出
-              </button>
             </div>
           </div>
 
@@ -5116,19 +5181,21 @@
               </h2>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-5">
-                {/* 新建项目卡片 */}
+                {/* 新建项目卡片 - 始终显示，大且醒目 */}
                 <div onClick={() => setCreateModalOpen(true)}
-                  className="new-project-card rounded-xl p-6 cursor-pointer flex flex-col items-center justify-center min-h-[200px] slide-up-delay-1"
-                  style={{ background: 'rgba(13,13,26,0.5)' }}>
-                  <div className="text-3xl mb-3" style={{ color: '#00ff88' }}>+</div>
-                  <div className="text-sm font-bold" style={{ color: '#00ff88' }}>新建项目</div>
-                  <div className="text-[10px] mt-1" style={{ color: '#5a5a7a' }}>开始你的漫剧创作</div>
+                  className="new-project-card rounded-xl p-8 cursor-pointer flex flex-col items-center justify-center min-h-[240px]">
+                  <div className="w-14 h-14 rounded-xl flex items-center justify-center mb-4"
+                    style={{ background: 'rgba(0,255,136,0.15)', border: '1px solid rgba(0,255,136,0.3)' }}>
+                    <span className="text-3xl font-light" style={{ color: '#00ff88' }}>+</span>
+                  </div>
+                  <div className="text-base font-bold mb-1" style={{ color: '#00ff88' }}>新建项目</div>
+                  <div className="text-xs" style={{ color: '#5a7a6a' }}>开始你的漫剧创作</div>
                 </div>
 
                 {/* 已有项目卡片 */}
                 {projects.map((project, idx) => (
                   <div key={project.id}
-                    className={`project-card rounded-xl overflow-hidden cursor-pointer slide-up-delay-${Math.min(idx + 1, 3)}`}
+                    className="project-card rounded-xl overflow-hidden cursor-pointer"
                     style={{ background: 'rgba(20,20,40,0.8)' }}
                     onClick={() => onOpenProject && onOpenProject(project)}>
                     {/* 封面区 */}
@@ -5167,13 +5234,6 @@
                     </div>
                   </div>
                 ))}
-
-                {projects.length === 0 && (
-                  <div className="col-span-full text-center py-16 slide-up-delay-2">
-                    <div className="text-5xl mb-4">🎬</div>
-                    <p className="text-sm" style={{ color: '#5a5a7a' }}>还没有项目，点击上方卡片开始创作</p>
-                  </div>
-                )}
               </div>
             </div>
           </div>
