@@ -1299,7 +1299,7 @@
     }
 
     /* ─── 左侧面板：剧本输入 ─── */
-    function ScriptInputTab({ onLoadingChange, scenes, onUpdateScenes, onToast, onRequestPassword, onShowSensitiveAlert, onShowRecharge, onBalanceChange, projectId }) {
+    function ScriptInputTab({ onLoadingChange, scenes, onUpdateScenes, onToast, onRequestPassword, onShowSensitiveAlert, onShowRecharge, onBalanceChange, projectId, onStyleChange }) {
       const [scriptText, setScriptText] = useState('');
       const [storyStyle, setStoryStyle] = useState('玄幻修仙');
       const [plotRhythm, setPlotRhythm] = useState('标准推进');
@@ -1561,7 +1561,7 @@
           }));
 
           onUpdateScenes(newScenes);
-          onToast && onToast('✅ 剧本优化完成，已拆分为 ' + newScenes.length + ' 个分镜', 'success');
+          onToast && onToast('✅ 剧本优化完成！已生成' + newScenes.length + '个分镜，点击分镜卡片开始生图', 'success');
 
         } catch(err) {
           clearTimeout(timeoutId);
@@ -1605,7 +1605,7 @@
               <select
                 className="w-full bg-surface border border-border rounded-md px-2.5 py-2 text-xs text-textPrimary focus:border-accent transition-colors appearance-none cursor-pointer"
                 value={storyStyle}
-                onChange={e => setStoryStyle(e.target.value)}
+                onChange={e => { setStoryStyle(e.target.value); onStyleChange && onStyleChange(e.target.value); }}
               >
                 <option>玄幻修仙</option>
                 <option>都市战神</option>
@@ -1846,7 +1846,7 @@
     }
 
     /* ─── 左侧面板 ─── */
-    function LeftPanel({ collapsed, onToggle, onToast, scenes, onUpdateScenes, onRequestPassword, onShowSensitiveAlert, onShowRecharge, onBalanceChange, projectId }) {
+    function LeftPanel({ collapsed, onToggle, onToast, scenes, onUpdateScenes, onRequestPassword, onShowSensitiveAlert, onShowRecharge, onBalanceChange, projectId, onStyleChange }) {
       const [activeTab, setActiveTab] = useState(0);
       const [isLoading, setIsLoading] = useState(false);
       const tabs = ['剧本输入', '全局资产库', '素材库'];
@@ -1874,7 +1874,7 @@
               ))}
             </div>
             <div className="flex-1 overflow-y-auto">
-              {activeTab === 0 && <ScriptInputTab onLoadingChange={setIsLoading} scenes={scenes} onUpdateScenes={onUpdateScenes} onToast={onToast} onRequestPassword={onRequestPassword} onShowSensitiveAlert={onShowSensitiveAlert} onShowRecharge={onShowRecharge} onBalanceChange={onBalanceChange} projectId={projectId} />}
+              {activeTab === 0 && <ScriptInputTab onLoadingChange={setIsLoading} scenes={scenes} onUpdateScenes={onUpdateScenes} onToast={onToast} onRequestPassword={onRequestPassword} onShowSensitiveAlert={onShowSensitiveAlert} onShowRecharge={onShowRecharge} onBalanceChange={onBalanceChange} projectId={projectId} onStyleChange={onStyleChange} />}
               {activeTab === 1 && <AssetLibraryTab onToast={onToast} />}
               {activeTab === 2 && <MaterialLibraryTab />}
             </div>
@@ -2186,13 +2186,24 @@
                   {!imageLoaded && setTimeout(() => setImageLoaded(true), 800) && null}
                 </div>
               ) : (
-                /* 无图片占位 */
+                /* 无图片占位 + 引导生成按钮 */
                 <div
-                  className="w-full h-full flex flex-col items-center justify-center"
+                  className="w-full h-full flex flex-col items-center justify-center cursor-pointer group"
                   style={{ background: sceneGradients[(scene.id - 1) % sceneGradients.length] }}
+                  onClick={scene.description ? handleRegenerate : undefined}
                 >
-                  <div className="text-3xl mb-2 opacity-40">🎬</div>
-                  <p className="text-textSecondary/60 text-xs">等待生成</p>
+                  {scene.description ? (
+                    <>
+                      <div className="text-3xl mb-2 opacity-60 group-hover:opacity-90 transition-opacity">🖼️</div>
+                      <p className="text-accent text-xs font-semibold group-hover:underline">点击生成图片</p>
+                      <p className="text-textSecondary/50 text-[9px] mt-0.5">已有画面描述，一键生图</p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-3xl mb-2 opacity-40">🎬</div>
+                      <p className="text-textSecondary/60 text-xs">等待生成</p>
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -2218,7 +2229,7 @@
               className="flex-1 py-2.5 rounded-lg text-xs font-bold text-white transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ background: generating ? '#555' : 'linear-gradient(135deg, #6c5ce7, #a29bfe)' }}
             >
-              {generating ? '⏳ 生成中...' : '🔄 重新生成图片'}
+              {generating ? '⏳ 生成中...' : (hasImage ? '🔄 重新生成图片' : '🖼️ 生成图片')}
             </button>
             <button
               onClick={handlePolishPrompt}
@@ -2229,6 +2240,18 @@
               {polishing ? '⏳ 润色中...' : '✨ AI辅助润色提示词'}
             </button>
           </div>
+
+          {/* 视频生成引导：有图片但无视频时显示 */}
+          {hasImage && !scene.videoUrl && (
+            <div className="w-full">
+              <button
+                className="w-full py-2.5 rounded-lg text-xs font-bold text-white transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-1.5"
+                style={{ background: 'linear-gradient(135deg, #00b894, #00cec9)', border: '1px solid rgba(0,184,148,0.3)' }}
+              >
+                🎥 点击生成视频
+              </button>
+            </div>
+          )}
 
           {/* AI提示词预览 */}
           <div className="w-full">
@@ -2421,10 +2444,26 @@
     /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
     /* ─── 中央画布区 ─── */
     /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
-    function CenterCanvas({ scenes, onUpdateScene, onToast, onOpenExport, onOpenApiConfig, balanceVersion, onShowSensitiveAlert, onShowRecharge, onBalanceChange, onOpenApiConfigFromRecharge, currentProject, onBackToProjects, currentUser }) {
+    function CenterCanvas({ scenes, onUpdateScene, onToast, onOpenExport, onOpenApiConfig, balanceVersion, onShowSensitiveAlert, onShowRecharge, onBalanceChange, onOpenApiConfigFromRecharge, currentProject, onBackToProjects, currentUser, currentStyle }) {
       const [viewMode, setViewMode] = useState('timeline'); // 'timeline' | 'table'
       const [selectedSceneId, setSelectedSceneId] = useState(scenes.length > 0 ? scenes[0].id : null);
       const [generatingVideo, setGeneratingVideo] = useState(false);
+
+      /* 场景变化时自动选中第一个分镜（AI优化后场景ID全部变化时触发） */
+      const prevScenesIdRef = useRef(scenes.map(s => s.id).join(','));
+      useEffect(() => {
+        const currentIdStr = scenes.map(s => s.id).join(',');
+        if (currentIdStr !== prevScenesIdRef.current && scenes.length > 0) {
+          const prevIds = prevScenesIdRef.current.split(',').filter(Boolean);
+          const newIds = scenes.map(s => String(s.id));
+          // 如果场景ID集合发生较大变化（说明是AI优化后的全新场景集），自动选中第一个
+          const overlap = newIds.filter(id => prevIds.includes(id));
+          if (overlap.length < newIds.length / 2) {
+            setSelectedSceneId(scenes[0].id);
+          }
+          prevScenesIdRef.current = currentIdStr;
+        }
+      }, [scenes]);
 
       /* 从 localForage 恢复视图状态 */
       useEffect(() => {
@@ -2507,7 +2546,7 @@
                 {currentProject ? currentProject.name : '漫剧制作工作台'}
               </span>
               {currentProject && (
-                <span className="text-[10px] text-textSecondary bg-surface px-2 py-0.5 rounded-full">{currentProject.style}</span>
+                <span className="text-[10px] text-textSecondary bg-surface px-2 py-0.5 rounded-full">{currentStyle || currentProject.style}</span>
               )}
               {!currentProject && (
                 <span className="text-[10px] text-textSecondary bg-surface px-2 py-0.5 rounded-full">v1.0</span>
@@ -2562,6 +2601,68 @@
             </div>
           </div>
 
+          {/* ── 制作流程进度条 ── */}
+          {(() => {
+            const steps = [
+              { icon: '📋', label: '剧本输入' },
+              { icon: '✨', label: 'AI优化' },
+              { icon: '🎬', label: '分镜生成' },
+              { icon: '🖼️', label: '逐镜生图' },
+              { icon: '🎥', label: '视频生成' },
+              { icon: '🎙️', label: '配音' },
+              { icon: '📦', label: '导出' },
+            ];
+            const hasScript = scenes.length > 0 && scenes.some(s => s.novelText);
+            const hasOptimized = scenes.length > 0 && scenes.some(s => s.description);
+            const hasAllDescriptions = scenes.length > 0 && scenes.every(s => s.description);
+            const hasAnyImage = scenes.some(s => s.imageUrl || s.thumbnailUrl);
+            const hasAllImages = scenes.length > 0 && scenes.every(s => s.imageUrl || s.thumbnailUrl);
+            const hasAnyVideo = scenes.some(s => s.videoUrl);
+            const hasAllVideos = scenes.length > 0 && scenes.every(s => s.videoUrl);
+            const hasAudio = scenes.some(s => s.dialogue);
+            const isExported = false; // placeholder for export tracking
+
+            let currentStep = 0;
+            if (hasScript) currentStep = 1;
+            if (hasOptimized) currentStep = 2;
+            if (hasAllDescriptions) currentStep = 3;
+            if (hasAnyImage) currentStep = 4;
+            if (hasAllImages) currentStep = 4;
+            if (hasAnyVideo) currentStep = 5;
+            if (hasAllVideos) currentStep = 5;
+            if (hasAudio) currentStep = 6;
+            if (isExported) currentStep = 7;
+
+            const stepStatus = steps.map((_, i) => i < currentStep ? 'done' : i === currentStep ? 'active' : 'pending');
+
+            return (
+              <div className="flex items-center justify-center gap-0 px-4 py-1.5 border-b border-border/30 flex-shrink-0" style={{ background: 'rgba(13,13,26,0.6)' }}>
+                {steps.map((step, i) => (
+                  <React.Fragment key={i}>
+                    {i > 0 && (
+                      <div className="flex items-center mx-0.5" style={{ minWidth: 12 }}>
+                        <div className="h-px w-3" style={{ background: stepStatus[i-1] === 'done' ? '#00ff88' : stepStatus[i] !== 'pending' ? 'rgba(255,107,53,0.5)' : 'rgba(255,255,255,0.1)' }} />
+                      </div>
+                    )}
+                    <div className="flex items-center gap-1 cursor-default" title={step.label}>
+                      <span className="text-[10px]" style={{
+                        opacity: stepStatus[i] === 'pending' ? 0.35 : 1,
+                        filter: stepStatus[i] === 'active' ? 'drop-shadow(0 0 4px rgba(255,107,53,0.6))' : 'none',
+                      }}>
+                        {stepStatus[i] === 'done' ? '✅' : step.icon}
+                      </span>
+                      <span className="text-[9px] font-medium hidden sm:inline" style={{
+                        color: stepStatus[i] === 'done' ? '#00ff88' : stepStatus[i] === 'active' ? '#ff6b35' : 'rgba(255,255,255,0.3)',
+                      }}>
+                        {step.label}
+                      </span>
+                    </div>
+                  </React.Fragment>
+                ))}
+              </div>
+            );
+          })()}
+
           {/* Canvas area */}
           <div className="flex-1 flex flex-col items-center justify-center relative overflow-hidden">
             {/* Subtle grid background */}
@@ -2572,7 +2673,32 @@
               }}
             />
 
-            {viewMode === 'timeline' ? (
+            {/* ── 空状态引导（没有任何生成图片时显示） ── */}
+            {scenes.length === 0 && (
+              <div className="relative z-10 flex flex-col items-center justify-center py-8 px-6 fade-in">
+                <div className="text-6xl mb-4 opacity-60">🎬</div>
+                <h3 className="text-lg font-bold text-textPrimary mb-2">开始创作你的漫剧</h3>
+                <p className="text-xs text-textSecondary mb-6 text-center max-w-xs">按照以下步骤，从剧本到成片，一键搞定</p>
+                <div className="space-y-3 w-full max-w-sm">
+                  {[
+                    { step: 1, icon: '📝', text: '在左侧面板输入剧本内容', color: '#6c5ce7' },
+                    { step: 2, icon: '🤖', text: '点击"AI一键优化"自动生成分镜', color: '#ff6b35' },
+                    { step: 3, icon: '🖼️', text: '为每个分镜生成AI图片', color: '#e84393' },
+                    { step: 4, icon: '🎬', text: '批量生成动态视频', color: '#00b894' },
+                    { step: 5, icon: '📦', text: '导出成品，发布上线！', color: '#fdcb6e' },
+                  ].map(item => (
+                    <div key={item.step} className="flex items-center gap-3 p-2.5 rounded-lg border border-border/50 hover:border-border transition-colors" style={{ background: 'rgba(20,20,40,0.5)' }}>
+                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0" style={{ background: `${item.color}33`, border: `1px solid ${item.color}66`, color: item.color }}>
+                        {item.step}
+                      </div>
+                      <span className="text-[11px] text-textSecondary">{item.icon} {item.text}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {scenes.length > 0 && viewMode === 'timeline' ? (
               /* ─── 时间轴视图：单镜控制 ─── */
               <div className="relative z-10 flex flex-col items-center w-full h-full overflow-y-auto py-4 px-6">
                 {selectedScene && (
@@ -2586,7 +2712,7 @@
                   />
                 )}
               </div>
-            ) : (
+            ) : scenes.length > 0 && (
               /* ─── 表格视图：全局分镜表格 ─── */
               <div className="relative z-10 w-full h-full overflow-auto px-4 py-3">
                 <StoryboardTableView
@@ -5998,6 +6124,7 @@
       const [rightCollapsed, setRightCollapsed] = useState(false);
       const [toasts, setToasts] = useState([]);
       const [scenes, setScenes] = useState([]);
+      const [currentStyle, setCurrentStyle] = useState('');
       const [exportModalOpen, setExportModalOpen] = useState(false);
       const [apiConfigModalOpen, setApiConfigModalOpen] = useState(false);
 
@@ -6042,6 +6169,11 @@
 
       const handleOpenApiConfigFromRecharge = useCallback(() => {
         setApiConfigModalOpen(true);
+      }, []);
+
+      /* 风格同步回调：左侧面板切换storyStyle时同步到顶部导航 */
+      const handleStyleChange = useCallback((style) => {
+        setCurrentStyle(style);
       }, []);
 
       const addToast = useCallback((message, type = 'info') => {
@@ -6170,6 +6302,7 @@
         }
 
         setCurrentProject(project);
+        setCurrentStyle(data.storyStyle || project.style || '玄幻修仙');
         setPage('workspace');
       }, [currentProject, scenes]);
 
@@ -6314,8 +6447,8 @@
       /* ─── 工作台页面 ─── */
       return (
         <div className="h-screen w-screen flex overflow-hidden">
-          <LeftPanel collapsed={leftCollapsed} onToggle={() => setLeftCollapsed(!leftCollapsed)} onToast={addToast} scenes={scenes} onUpdateScenes={handleUpdateScenes} onRequestPassword={requestPassword} onShowSensitiveAlert={handleShowSensitiveAlert} onShowRecharge={handleShowRecharge} onBalanceChange={handleBalanceChange} projectId={currentProject?.id} />
-          <CenterCanvas scenes={scenes} onUpdateScene={handleUpdateScene} onToast={addToast} onOpenExport={() => setExportModalOpen(true)} onOpenApiConfig={() => setApiConfigModalOpen(true)} balanceVersion={balanceVersion} onShowSensitiveAlert={handleShowSensitiveAlert} onShowRecharge={handleShowRecharge} onBalanceChange={handleBalanceChange} onOpenApiConfigFromRecharge={handleOpenApiConfigFromRecharge} currentProject={currentProject} onBackToProjects={handleBackToProjects} currentUser={currentUser} />
+          <LeftPanel collapsed={leftCollapsed} onToggle={() => setLeftCollapsed(!leftCollapsed)} onToast={addToast} scenes={scenes} onUpdateScenes={handleUpdateScenes} onRequestPassword={requestPassword} onShowSensitiveAlert={handleShowSensitiveAlert} onShowRecharge={handleShowRecharge} onBalanceChange={handleBalanceChange} projectId={currentProject?.id} onStyleChange={handleStyleChange} />
+          <CenterCanvas scenes={scenes} onUpdateScene={handleUpdateScene} onToast={addToast} onOpenExport={() => setExportModalOpen(true)} onOpenApiConfig={() => setApiConfigModalOpen(true)} balanceVersion={balanceVersion} onShowSensitiveAlert={handleShowSensitiveAlert} onShowRecharge={handleShowRecharge} onBalanceChange={handleBalanceChange} onOpenApiConfigFromRecharge={handleOpenApiConfigFromRecharge} currentProject={currentProject} onBackToProjects={handleBackToProjects} currentUser={currentUser} currentStyle={currentStyle} />
           <RightPanel collapsed={rightCollapsed} onToggle={() => setRightCollapsed(!rightCollapsed)} />
           <ToastContainer toasts={toasts} />
           <ExportModal open={exportModalOpen} onClose={() => setExportModalOpen(false)} onToast={addToast} scenes={scenes} onStartRender={handleStartRender} />
