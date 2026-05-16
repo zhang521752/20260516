@@ -1,0 +1,22 @@
+{
+  "name": "漫剧制作工作台",
+  "short_name": "漫剧工作台",
+  "description": "纯前端漫剧创作工具 - 剧本拆分、分镜管理、AI辅助、视频合成",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0d0d1a",
+  "theme_color": "#ff6b35",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
