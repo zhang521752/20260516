@@ -1,0 +1,1015 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>漫剧工作台 - 管理后台</title>
+  <script src="https://cdn.bootcdn.net/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+  <script src="https://cdn.bootcdn.net/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdn.bootcdn.net/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdn.bootcdn.net/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    window.addEventListener('load', function() {
+      if (typeof React === 'undefined') {
+        document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0d0d1a;color:#ff6b35;font-size:20px;text-align:center;padding:20px;">⚠️ 资源加载失败，请检查网络连接后刷新页面<br><br><button onclick="location.reload()" style="padding:10px 30px;font-size:16px;background:#ff6b35;color:#fff;border:none;border-radius:8px;cursor:pointer;">刷新重试</button></div>';
+      }
+    });
+  </script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            panel: '#0d0d1a',
+            surface: '#141428',
+            canvas: '#1a1a2e',
+            border: '#2a2a4a',
+            accent: '#ff6b35',
+            accentHover: '#ff8c5a',
+            highlight: '#e84393',
+            textPrimary: '#e8e8f0',
+            textSecondary: '#8888aa',
+            tabActive: '#2d2d5e',
+            tabHover: '#22224a',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body, #root { height: 100%; }
+    body { background: #0d0d1a; color: #e8e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #2a2a4a; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #3a3a5a; }
+    textarea:focus, input:focus, select:focus { outline: none; box-shadow: 0 0 0 2px rgba(255,107,53,0.3); }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    .fade-in { animation: fadeIn 0.25s ease-out; }
+    @keyframes pulse-glow { 0%, 100% { box-shadow: 0 0 15px rgba(255,107,53,0.3); } 50% { box-shadow: 0 0 30px rgba(255,107,53,0.5); } }
+    .glow-btn { animation: pulse-glow 2.5s ease-in-out infinite; }
+    .glow-btn:hover { animation: none; box-shadow: 0 0 35px rgba(255,107,53,0.6); }
+    select option { background: #141428; color: #e8e8f0; }
+    @keyframes lockShake { 0%, 100% { transform: translateX(0); } 10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); } 20%, 40%, 60%, 80% { transform: translateX(4px); } }
+    .shake { animation: lockShake 0.5s ease-in-out; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner { animation: spin 1s linear infinite; }
+    .table-row-even { background: rgba(20, 20, 40, 0.5); }
+    .table-row-odd { background: rgba(26, 26, 46, 0.5); }
+    .table-row-even:hover, .table-row-odd:hover { background: rgba(45, 45, 94, 0.4); }
+    @keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+    .slide-in { animation: slideIn 0.2s ease-out; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useCallback, useMemo, useRef } = React;
+
+    /* ─── 卡密生成逻辑（与主应用一致） ─── */
+    const CARD_SECRET_SALT = 'ComicWorkbench2026Salt!@#';
+
+    function generateCheckCode(timestamp, amount) {
+      const raw = String(timestamp) + String(amount) + CARD_SECRET_SALT;
+      const hash = CryptoJS.SHA256(raw).toString();
+      return hash.substring(0, 8).toUpperCase();
+    }
+
+    function generateCardKey(amount, validityDays) {
+      const timestamp = Math.floor(Date.now() / 1000);
+      const checkCode = generateCheckCode(timestamp, amount);
+      return {
+        key: `MC-${amount}-${timestamp}-${checkCode}`,
+        timestamp,
+        amount,
+        validityDays
+      };
+    }
+
+    /* ─── 密码常量 ─── */
+    const DEFAULT_PASSWORD_HASH = CryptoJS.SHA256('admin2026').toString();
+    const LOCKOUT_DURATION = 5 * 60 * 1000; // 5分钟
+    const MAX_ATTEMPTS = 3;
+
+    /* ─── 套餐配置 ─── */
+    const DEFAULT_PACKAGES = [
+      { id: 'basic', name: '基础包', points: 100, price: 9.9, emoji: '🥉' },
+      { id: 'advanced', name: '进阶包', points: 500, price: 39.9, emoji: '🥈' },
+      { id: 'premium', name: '尊享包', points: 2000, price: 129.9, emoji: '🥇' }
+    ];
+
+    /* ─── localStorage 工具 ─── */
+    const LS = {
+      get: (key, fallback = null) => {
+        try {
+          const v = localStorage.getItem(key);
+          return v ? JSON.parse(v) : fallback;
+        } catch { return fallback; }
+      },
+      set: (key, val) => {
+        try { localStorage.setItem(key, JSON.stringify(val)); } catch {}
+      },
+      remove: (key) => {
+        try { localStorage.removeItem(key); } catch {}
+      }
+    };
+
+    const LS_KEYS = {
+      PASSWORD_HASH: 'cw_admin_password_hash',
+      LOCKOUT: 'cw_admin_lockout',
+      ATTEMPTS: 'cw_admin_attempts',
+      AUTH: 'cw_admin_auth',
+      CARD_BATCHES: 'cw_admin_card_batches',
+      PACKAGES: 'cw_admin_packages',
+      CARD_SHOP_URL: 'comic_workbench_card_shop_url',
+    };
+
+    /* ─── Toast 通知组件 ─── */
+    function ToastContainer({ toasts, onRemove }) {
+      return (
+        <div className="fixed top-4 right-4 z-50 flex flex-col gap-2" style={{ maxWidth: 360 }}>
+          {toasts.map(t => (
+            <div
+              key={t.id}
+              className={`fade-in px-4 py-3 rounded-lg shadow-lg text-sm flex items-center gap-2 ${
+                t.type === 'success' ? 'bg-green-900/80 text-green-200 border border-green-700/50' :
+                t.type === 'error' ? 'bg-red-900/80 text-red-200 border border-red-700/50' :
+                'bg-blue-900/80 text-blue-200 border border-blue-700/50'
+              }`}
+            >
+              <span>{t.type === 'success' ? '✅' : t.type === 'error' ? '❌' : 'ℹ️'}</span>
+              <span className="flex-1">{t.message}</span>
+              <button onClick={() => onRemove(t.id)} className="text-current opacity-50 hover:opacity-100 ml-2">✕</button>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    /* ─── 登录页 ─── */
+    function LoginPage({ onLogin, toast }) {
+      const [password, setPassword] = useState('');
+      const [locked, setLocked] = useState(false);
+      const [remainSeconds, setRemainSeconds] = useState(0);
+      const [shakeInput, setShakeInput] = useState(false);
+      const inputRef = useRef(null);
+      const timerRef = useRef(null);
+
+      useEffect(() => {
+        const lockout = LS.get(LS_KEYS.LOCKOUT, null);
+        if (lockout && Date.now() < lockout) {
+          setLocked(true);
+          setRemainSeconds(Math.ceil((lockout - Date.now()) / 1000));
+          timerRef.current = setInterval(() => {
+            const remaining = Math.ceil((lockout - Date.now()) / 1000);
+            if (remaining <= 0) {
+              clearInterval(timerRef.current);
+              setLocked(false);
+              setRemainSeconds(0);
+              LS.remove(LS_KEYS.LOCKOUT);
+              LS.set(LS_KEYS.ATTEMPTS, 0);
+            } else {
+              setRemainSeconds(remaining);
+            }
+          }, 1000);
+        }
+        return () => clearInterval(timerRef.current);
+      }, []);
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        if (locked) return;
+
+        const hash = CryptoJS.SHA256(password).toString();
+        const storedHash = LS.get(LS_KEYS.PASSWORD_HASH, DEFAULT_PASSWORD_HASH);
+
+        if (hash === storedHash) {
+          LS.set(LS_KEYS.AUTH, true);
+          LS.set(LS_KEYS.ATTEMPTS, 0);
+          onLogin();
+        } else {
+          setShakeInput(true);
+          setTimeout(() => setShakeInput(false), 500);
+
+          const attempts = (LS.get(LS_KEYS.ATTEMPTS, 0) || 0) + 1;
+          LS.set(LS_KEYS.ATTEMPTS, attempts);
+
+          if (attempts >= MAX_ATTEMPTS) {
+            const lockUntil = Date.now() + LOCKOUT_DURATION;
+            LS.set(LS_KEYS.LOCKOUT, lockUntil);
+            setLocked(true);
+            setRemainSeconds(Math.ceil(LOCKOUT_DURATION / 1000));
+            toast('error', `密码错误次数过多，已锁定5分钟`);
+            timerRef.current = setInterval(() => {
+              const remaining = Math.ceil((lockUntil - Date.now()) / 1000);
+              if (remaining <= 0) {
+                clearInterval(timerRef.current);
+                setLocked(false);
+                setRemainSeconds(0);
+                LS.remove(LS_KEYS.LOCKOUT);
+                LS.set(LS_KEYS.ATTEMPTS, 0);
+              } else {
+                setRemainSeconds(remaining);
+              }
+            }, 1000);
+          } else {
+            toast('error', `密码错误，还剩 ${MAX_ATTEMPTS - attempts} 次尝试机会`);
+          }
+          setPassword('');
+        }
+      };
+
+      return (
+        <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #0d0d1a 0%, #141428 50%, #1a1a2e 100%)' }}>
+          <div className="fade-in w-full max-w-sm mx-4">
+            <div className="text-center mb-8">
+              <div className="text-5xl mb-4">🔐</div>
+              <h1 className="text-2xl font-bold text-textPrimary mb-2">漫剧工作台</h1>
+              <p className="text-textSecondary text-sm">管理后台 · 身份验证</p>
+            </div>
+            <form onSubmit={handleSubmit} className="bg-surface border border-border rounded-xl p-6 shadow-2xl">
+              <label className="block text-sm text-textSecondary mb-2">管理员密码</label>
+              <input
+                ref={inputRef}
+                type="password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                disabled={locked}
+                placeholder={locked ? `已锁定，${remainSeconds}秒后重试` : '请输入管理员密码'}
+                className={`w-full bg-canvas border border-border rounded-lg px-4 py-3 text-textPrimary placeholder-textSecondary/50 mb-4 transition-all ${shakeInput ? 'shake border-red-500' : ''} ${locked ? 'opacity-50 cursor-not-allowed' : ''}`}
+              />
+              <button
+                type="submit"
+                disabled={locked || !password}
+                className={`w-full py-3 rounded-lg font-medium transition-all ${
+                  locked || !password
+                    ? 'bg-border text-textSecondary cursor-not-allowed'
+                    : 'bg-accent hover:bg-accentHover text-white glow-btn'
+                }`}
+              >
+                {locked ? `🔒 锁定中 (${remainSeconds}s)` : '登 录'}
+              </button>
+            </form>
+            <p className="text-center text-textSecondary/40 text-xs mt-6">默认密码: admin2026（请及时修改）</p>
+          </div>
+        </div>
+      );
+    }
+
+    /* ─── 修改密码弹窗 ─── */
+    function ChangePasswordModal({ open, onClose, toast }) {
+      const [oldPw, setOldPw] = useState('');
+      const [newPw, setNewPw] = useState('');
+      const [confirmPw, setConfirmPw] = useState('');
+
+      if (!open) return null;
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        const storedHash = LS.get(LS_KEYS.PASSWORD_HASH, DEFAULT_PASSWORD_HASH);
+        const oldHash = CryptoJS.SHA256(oldPw).toString();
+
+        if (oldHash !== storedHash) {
+          toast('error', '旧密码不正确');
+          return;
+        }
+        if (newPw.length < 6) {
+          toast('error', '新密码至少6位');
+          return;
+        }
+        if (newPw !== confirmPw) {
+          toast('error', '两次输入的新密码不一致');
+          return;
+        }
+        const newHash = CryptoJS.SHA256(newPw).toString();
+        LS.set(LS_KEYS.PASSWORD_HASH, newHash);
+        toast('success', '密码修改成功');
+        setOldPw(''); setNewPw(''); setConfirmPw('');
+        onClose();
+      };
+
+      return (
+        <div className="fixed inset-0 z-40 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.7)' }}>
+          <div className="fade-in bg-surface border border-border rounded-xl p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-bold text-textPrimary mb-4">🔑 修改密码</h3>
+            <form onSubmit={handleSubmit}>
+              <label className="block text-sm text-textSecondary mb-1">旧密码</label>
+              <input type="password" value={oldPw} onChange={e => setOldPw(e.target.value)}
+                className="w-full bg-canvas border border-border rounded-lg px-4 py-2.5 text-textPrimary mb-3" />
+              <label className="block text-sm text-textSecondary mb-1">新密码</label>
+              <input type="password" value={newPw} onChange={e => setNewPw(e.target.value)}
+                className="w-full bg-canvas border border-border rounded-lg px-4 py-2.5 text-textPrimary mb-3" />
+              <label className="block text-sm text-textSecondary mb-1">确认新密码</label>
+              <input type="password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)}
+                className="w-full bg-canvas border border-border rounded-lg px-4 py-2.5 text-textPrimary mb-4" />
+              <div className="flex gap-3">
+                <button type="button" onClick={onClose}
+                  className="flex-1 py-2.5 rounded-lg border border-border text-textSecondary hover:bg-canvas transition">取消</button>
+                <button type="submit"
+                  className="flex-1 py-2.5 rounded-lg bg-accent hover:bg-accentHover text-white transition font-medium">确认修改</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    /* ─── 卡密生成面板 ─── */
+    function CardGenerator({ toast }) {
+      const [amount, setAmount] = useState(100);
+      const [quantity, setQuantity] = useState(10);
+      const [validity, setValidity] = useState(30);
+      const [generatedCards, setGeneratedCards] = useState([]);
+      const [generating, setGenerating] = useState(false);
+
+      const handleGenerate = () => {
+        if (quantity < 1 || quantity > 100) {
+          toast('error', '生成数量需在1-100之间');
+          return;
+        }
+        setGenerating(true);
+
+        setTimeout(() => {
+          const cards = [];
+          const now = new Date();
+          for (let i = 0; i < quantity; i++) {
+            const card = generateCardKey(amount, validity);
+            cards.push({
+              ...card,
+              index: i + 1,
+              generatedAt: now.toISOString(),
+              validityLabel: validity === 0 ? '永久' : `${validity}天`,
+              status: '未激活'
+            });
+          }
+
+          // 保存批次到localStorage
+          const batches = LS.get(LS_KEYS.CARD_BATCHES, []);
+          const batchNo = `B${String(batches.length + 1).padStart(4, '0')}`;
+          const batch = {
+            batchNo,
+            generatedAt: now.toISOString(),
+            amount,
+            validity,
+            validityLabel: validity === 0 ? '永久' : `${validity}天`,
+            quantity,
+            cards: cards.map(c => ({ key: c.key, amount: c.amount, timestamp: c.timestamp, validityDays: c.validityDays, generatedAt: c.generatedAt, validityLabel: c.validityLabel }))
+          };
+          batches.push(batch);
+          LS.set(LS_KEYS.CARD_BATCHES, batches);
+
+          setGeneratedCards(cards);
+          setGenerating(false);
+          toast('success', `成功生成 ${quantity} 张 ${amount}点 卡密`);
+        }, 300);
+      };
+
+      const copyCard = (key) => {
+        navigator.clipboard.writeText(key).then(() => toast('success', '已复制卡密')).catch(() => toast('error', '复制失败'));
+      };
+
+      const copyAll = () => {
+        const text = generatedCards.map(c => c.key).join('\n');
+        navigator.clipboard.writeText(text).then(() => toast('success', `已复制 ${generatedCards.length} 张卡密`)).catch(() => toast('error', '复制失败'));
+      };
+
+      const exportCSV = () => {
+        const bom = '\uFEFF';
+        const header = '序号,卡密,面额,生成时间,有效期,状态\n';
+        const rows = generatedCards.map((c, i) =>
+          `${i + 1},"${c.key}",${c.amount}点,${new Date(c.generatedAt).toLocaleString('zh-CN')},${c.validityLabel},${c.status}`
+        ).join('\n');
+        const blob = new Blob([bom + header + rows], { type: 'text/csv;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `卡密_${amount}点_${new Date().toISOString().slice(0,10)}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        toast('success', 'CSV文件已下载');
+      };
+
+      return (
+        <div className="fade-in space-y-6">
+          <h2 className="text-xl font-bold text-textPrimary flex items-center gap-2">🎫 卡密生成</h2>
+
+          {/* 生成配置 */}
+          <div className="bg-surface border border-border rounded-xl p-5">
+            <h3 className="text-sm font-medium text-textSecondary mb-4">生成配置</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+              {/* 面额选择 */}
+              <div>
+                <label className="block text-xs text-textSecondary mb-2">面额</label>
+                <div className="flex gap-2">
+                  {[100, 500, 2000].map(a => (
+                    <button key={a} onClick={() => setAmount(a)}
+                      className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
+                        amount === a
+                          ? 'bg-accent text-white shadow-lg'
+                          : 'bg-canvas border border-border text-textSecondary hover:border-accent/50'
+                      }`}
+                    >
+                      {a}点
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 数量 */}
+              <div>
+                <label className="block text-xs text-textSecondary mb-2">生成数量（1-100）</label>
+                <input type="number" min="1" max="100" value={quantity}
+                  onChange={e => setQuantity(Math.min(100, Math.max(1, parseInt(e.target.value) || 1)))}
+                  className="w-full bg-canvas border border-border rounded-lg px-4 py-2 text-textPrimary" />
+              </div>
+
+              {/* 有效期 */}
+              <div>
+                <label className="block text-xs text-textSecondary mb-2">有效期</label>
+                <select value={validity} onChange={e => setValidity(parseInt(e.target.value))}
+                  className="w-full bg-canvas border border-border rounded-lg px-4 py-2 text-textPrimary">
+                  <option value={7}>7天</option>
+                  <option value={30}>30天</option>
+                  <option value={90}>90天</option>
+                  <option value={0}>永久</option>
+                </select>
+              </div>
+            </div>
+
+            <button onClick={handleGenerate} disabled={generating}
+              className={`w-full py-3 rounded-lg font-medium transition-all ${
+                generating
+                  ? 'bg-border text-textSecondary cursor-not-allowed'
+                  : 'bg-accent hover:bg-accentHover text-white glow-btn'
+              }`}>
+              {generating ? '⏳ 生成中...' : `🚀 批量生成 ${quantity} 张卡密`}
+            </button>
+          </div>
+
+          {/* 生成结果 */}
+          {generatedCards.length > 0 && (
+            <div className="bg-surface border border-border rounded-xl overflow-hidden">
+              <div className="flex items-center justify-between px-5 py-3 border-b border-border">
+                <h3 className="text-sm font-medium text-textSecondary">
+                  生成结果（{generatedCards.length} 张）
+                </h3>
+                <div className="flex gap-2">
+                  <button onClick={copyAll}
+                    className="px-3 py-1.5 rounded-lg bg-canvas border border-border text-textSecondary hover:text-textPrimary hover:border-accent/50 text-xs transition">
+                    📋 一键复制全部
+                  </button>
+                  <button onClick={exportCSV}
+                    className="px-3 py-1.5 rounded-lg bg-canvas border border-border text-textSecondary hover:text-textPrimary hover:border-accent/50 text-xs transition">
+                    📥 导出CSV
+                  </button>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto max-h-96 overflow-y-auto">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-surface z-10">
+                    <tr className="text-textSecondary text-xs">
+                      <th className="text-left px-4 py-2.5 font-medium">#</th>
+                      <th className="text-left px-4 py-2.5 font-medium">卡密</th>
+                      <th className="text-left px-4 py-2.5 font-medium">面额</th>
+                      <th className="text-left px-4 py-2.5 font-medium">生成时间</th>
+                      <th className="text-left px-4 py-2.5 font-medium">有效期</th>
+                      <th className="text-left px-4 py-2.5 font-medium">状态</th>
+                      <th className="text-left px-4 py-2.5 font-medium">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {generatedCards.map((card, i) => (
+                      <tr key={i} className={`${i % 2 === 0 ? 'table-row-even' : 'table-row-odd'} border-b border-border/30 transition`}>
+                        <td className="px-4 py-2 text-textSecondary">{i + 1}</td>
+                        <td className="px-4 py-2 font-mono text-accent text-xs">{card.key}</td>
+                        <td className="px-4 py-2">{card.amount}点</td>
+                        <td className="px-4 py-2 text-textSecondary text-xs">{new Date(card.generatedAt).toLocaleString('zh-CN')}</td>
+                        <td className="px-4 py-2">{card.validityLabel}</td>
+                        <td className="px-4 py-2"><span className="px-2 py-0.5 rounded text-xs bg-blue-900/50 text-blue-300">未激活</span></td>
+                        <td className="px-4 py-2">
+                          <button onClick={() => copyCard(card.key)}
+                            className="text-accent hover:text-accentHover text-xs transition">复制</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    /* ─── 卡密统计面板 ─── */
+    function CardStats({ toast }) {
+      const [batches, setBatches] = useState([]);
+      const [filterAmount, setFilterAmount] = useState('all');
+      const [filterDate, setFilterDate] = useState('');
+      const [expandedBatch, setExpandedBatch] = useState(null);
+
+      useEffect(() => {
+        setBatches(LS.get(LS_KEYS.CARD_BATCHES, []));
+      }, []);
+
+      const allCards = useMemo(() => {
+        return batches.flatMap(b => b.cards.map(c => ({ ...c, batchNo: b.batchNo, batchTime: b.generatedAt })));
+      }, [batches]);
+
+      const filteredBatches = useMemo(() => {
+        let result = batches;
+        if (filterAmount !== 'all') {
+          result = result.filter(b => b.amount === parseInt(filterAmount));
+        }
+        if (filterDate) {
+          result = result.filter(b => b.generatedAt.startsWith(filterDate));
+        }
+        return result;
+      }, [batches, filterAmount, filterDate]);
+
+      const stats = useMemo(() => {
+        const total = allCards.length;
+        const byAmount = { 100: 0, 500: 0, 2000: 0 };
+        let totalValue = 0;
+        const today = new Date().toISOString().slice(0, 10);
+        let todayCount = 0;
+
+        allCards.forEach(c => {
+          if (byAmount[c.amount] !== undefined) byAmount[c.amount]++;
+          totalValue += c.amount;
+          if (c.generatedAt && c.generatedAt.startsWith(today)) todayCount++;
+        });
+
+        return { total, byAmount, totalValue, todayCount };
+      }, [allCards]);
+
+      const clearAll = () => {
+        if (confirm('确定清空所有卡密记录？此操作不可恢复！')) {
+          LS.set(LS_KEYS.CARD_BATCHES, []);
+          setBatches([]);
+          toast('success', '已清空所有记录');
+        }
+      };
+
+      return (
+        <div className="fade-in space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold text-textPrimary flex items-center gap-2">📊 卡密统计</h2>
+            <button onClick={clearAll}
+              className="px-3 py-1.5 rounded-lg bg-red-900/30 border border-red-700/50 text-red-400 hover:bg-red-900/50 text-xs transition">
+              🗑️ 清空记录
+            </button>
+          </div>
+
+          {/* 统计卡片 */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-surface border border-border rounded-xl p-4">
+              <div className="text-textSecondary text-xs mb-1">总生成数量</div>
+              <div className="text-2xl font-bold text-accent">{stats.total}</div>
+            </div>
+            <div className="bg-surface border border-border rounded-xl p-4">
+              <div className="text-textSecondary text-xs mb-1">总面额价值</div>
+              <div className="text-2xl font-bold text-textPrimary">{stats.totalValue.toLocaleString()}<span className="text-sm text-textSecondary ml-1">点</span></div>
+            </div>
+            <div className="bg-surface border border-border rounded-xl p-4">
+              <div className="text-textSecondary text-xs mb-1">今日生成</div>
+              <div className="text-2xl font-bold text-green-400">{stats.todayCount}</div>
+            </div>
+            <div className="bg-surface border border-border rounded-xl p-4">
+              <div className="text-textSecondary text-xs mb-1">生成批次</div>
+              <div className="text-2xl font-bold text-blue-400">{batches.length}</div>
+            </div>
+          </div>
+
+          {/* 面额分布 */}
+          <div className="bg-surface border border-border rounded-xl p-5">
+            <h3 className="text-sm font-medium text-textSecondary mb-3">面额分布</h3>
+            <div className="space-y-3">
+              {[100, 500, 2000].map(a => {
+                const count = stats.byAmount[a];
+                const pct = stats.total ? Math.round(count / stats.total * 100) : 0;
+                return (
+                  <div key={a} className="flex items-center gap-3">
+                    <span className="text-sm text-textPrimary w-16">{a}点</span>
+                    <div className="flex-1 h-6 bg-canvas rounded-full overflow-hidden">
+                      <div className="h-full bg-gradient-to-r from-accent to-highlight rounded-full transition-all duration-500"
+                        style={{ width: `${pct}%` }} />
+                    </div>
+                    <span className="text-sm text-textSecondary w-20 text-right">{count} 张 ({pct}%)</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 筛选 */}
+          <div className="flex flex-wrap gap-3 items-center">
+            <select value={filterAmount} onChange={e => setFilterAmount(e.target.value)}
+              className="bg-canvas border border-border rounded-lg px-3 py-2 text-textPrimary text-sm">
+              <option value="all">全部面额</option>
+              <option value="100">100点</option>
+              <option value="500">500点</option>
+              <option value="2000">2000点</option>
+            </select>
+            <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)}
+              className="bg-canvas border border-border rounded-lg px-3 py-2 text-textPrimary text-sm" />
+            {filterDate && (
+              <button onClick={() => setFilterDate('')} className="text-xs text-accent hover:text-accentHover">清除日期</button>
+            )}
+          </div>
+
+          {/* 批次历史 */}
+          <div className="bg-surface border border-border rounded-xl overflow-hidden">
+            <div className="px-5 py-3 border-b border-border">
+              <h3 className="text-sm font-medium text-textSecondary">生成批次记录</h3>
+            </div>
+            {filteredBatches.length === 0 ? (
+              <div className="px-5 py-10 text-center text-textSecondary text-sm">暂无记录</div>
+            ) : (
+              <div className="divide-y divide-border/30">
+                {filteredBatches.slice().reverse().map((batch) => (
+                  <div key={batch.batchNo}>
+                    <div
+                      className="flex items-center justify-between px-5 py-3 cursor-pointer hover:bg-canvas/50 transition"
+                      onClick={() => setExpandedBatch(expandedBatch === batch.batchNo ? null : batch.batchNo)}
+                    >
+                      <div className="flex items-center gap-4">
+                        <span className="text-accent font-mono text-sm">{batch.batchNo}</span>
+                        <span className="text-textSecondary text-xs">{new Date(batch.generatedAt).toLocaleString('zh-CN')}</span>
+                        <span className="px-2 py-0.5 rounded text-xs bg-accent/20 text-accent">{batch.amount}点</span>
+                        <span className="text-textSecondary text-xs">× {batch.quantity}</span>
+                      </div>
+                      <span className="text-textSecondary text-xs">{expandedBatch === batch.batchNo ? '▼' : '▶'}</span>
+                    </div>
+                    {expandedBatch === batch.batchNo && (
+                      <div className="bg-canvas/30 px-5 py-3 slide-in">
+                        <div className="max-h-60 overflow-y-auto">
+                          <table className="w-full text-xs">
+                            <thead>
+                              <tr className="text-textSecondary">
+                                <th className="text-left py-1.5 pr-3">#</th>
+                                <th className="text-left py-1.5 pr-3">卡密</th>
+                                <th className="text-left py-1.5 pr-3">有效期</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {batch.cards.map((c, i) => (
+                                <tr key={i} className="text-textPrimary">
+                                  <td className="py-1 pr-3 text-textSecondary">{i + 1}</td>
+                                  <td className="py-1 pr-3 font-mono text-accent">{c.key}</td>
+                                  <td className="py-1 pr-3 text-textSecondary">{c.validityLabel}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    /* ─── 定价管理面板 ─── */
+    function PricingManager({ toast }) {
+      const [packages, setPackages] = useState(() => {
+        const saved = LS.get(LS_KEYS.PACKAGES, null);
+        return saved || DEFAULT_PACKAGES.map(p => ({ ...p }));
+      });
+      const [editing, setEditing] = useState(null);
+      const [editPrice, setEditPrice] = useState('');
+
+      const handleEdit = (pkg) => {
+        setEditing(pkg.id);
+        setEditPrice(String(pkg.price));
+      };
+
+      const handleSave = (id) => {
+        const newPrice = parseFloat(editPrice);
+        if (isNaN(newPrice) || newPrice <= 0) {
+          toast('error', '请输入有效的价格');
+          return;
+        }
+        const updated = packages.map(p => p.id === id ? { ...p, price: newPrice } : p);
+        setPackages(updated);
+        LS.set(LS_KEYS.PACKAGES, updated);
+        setEditing(null);
+        toast('success', '定价已更新');
+      };
+
+      const handleReset = () => {
+        if (confirm('确定恢复默认定价？')) {
+          setPackages(DEFAULT_PACKAGES.map(p => ({ ...p })));
+          LS.set(LS_KEYS.PACKAGES, DEFAULT_PACKAGES.map(p => ({ ...p })));
+          toast('success', '已恢复默认定价');
+        }
+      };
+
+      return (
+        <div className="fade-in space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold text-textPrimary flex items-center gap-2">💰 定价管理</h2>
+            <button onClick={handleReset}
+              className="px-3 py-1.5 rounded-lg bg-canvas border border-border text-textSecondary hover:text-textPrimary hover:border-accent/50 text-xs transition">
+              🔄 恢复默认
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {packages.map(pkg => (
+              <div key={pkg.id} className="bg-surface border border-border rounded-xl p-5">
+                <div className="text-3xl mb-3">{pkg.emoji}</div>
+                <h3 className="text-lg font-bold text-textPrimary mb-1">{pkg.name}</h3>
+                <p className="text-textSecondary text-sm mb-4">{pkg.points} 点数</p>
+
+                {editing === pkg.id ? (
+                  <div className="flex gap-2">
+                    <div className="flex-1 relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-textSecondary text-sm">¥</span>
+                      <input type="number" step="0.1" value={editPrice}
+                        onChange={e => setEditPrice(e.target.value)}
+                        className="w-full bg-canvas border border-accent/50 rounded-lg pl-7 pr-3 py-2 text-textPrimary text-sm" />
+                    </div>
+                    <button onClick={() => handleSave(pkg.id)}
+                      className="px-3 py-2 rounded-lg bg-accent text-white text-sm hover:bg-accentHover transition">保存</button>
+                    <button onClick={() => setEditing(null)}
+                      className="px-3 py-2 rounded-lg border border-border text-textSecondary text-sm hover:text-textPrimary transition">取消</button>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-2xl font-bold text-accent">¥{pkg.price}</span>
+                    </div>
+                    <button onClick={() => handleEdit(pkg)}
+                      className="px-3 py-1.5 rounded-lg bg-canvas border border-border text-textSecondary hover:text-accent hover:border-accent/50 text-xs transition">
+                      ✏️ 修改
+                    </button>
+                  </div>
+                )}
+
+                <div className="mt-3 text-xs text-textSecondary">
+                  单价: ¥{(pkg.price / pkg.points * 100).toFixed(1)}/百点
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="bg-surface border border-border rounded-xl p-5">
+            <h3 className="text-sm font-medium text-textSecondary mb-2">💡 提示</h3>
+            <ul className="text-xs text-textSecondary space-y-1">
+              <li>• 修改后的价格存储在浏览器 localStorage 中</li>
+              <li>• 主应用充值弹窗会读取最新价格（需主应用支持读取 localStorage）</li>
+              <li>• 价格修改即时生效，无需重启</li>
+            </ul>
+          </div>
+        </div>
+      );
+    }
+
+    /* ─── 系统配置面板 ─── */
+    function SystemConfig({ toast }) {
+      const [shopUrl, setShopUrl] = useState(() => LS.get(LS_KEYS.CARD_SHOP_URL, ''));
+      const [savedUrl, setSavedUrl] = useState(() => LS.get(LS_KEYS.CARD_SHOP_URL, ''));
+
+      const handleSave = () => {
+        LS.set(LS_KEYS.CARD_SHOP_URL, shopUrl);
+        setSavedUrl(shopUrl);
+        toast('success', '发卡网链接已保存');
+      };
+
+      const handleClear = () => {
+        LS.remove(LS_KEYS.CARD_SHOP_URL);
+        setShopUrl('');
+        setSavedUrl('');
+        toast('success', '已清除发卡网链接');
+      };
+
+      return (
+        <div className="fade-in space-y-6">
+          <h2 className="text-xl font-bold text-textPrimary flex items-center gap-2">⚙️ 系统配置</h2>
+
+          {/* 发卡网链接 */}
+          <div className="bg-surface border border-border rounded-xl p-5">
+            <h3 className="text-sm font-medium text-textSecondary mb-3">🛒 发卡网链接配置</h3>
+            <p className="text-xs text-textSecondary mb-4">
+              配置后，主应用充值弹窗的"前往发卡网"按钮将指向此链接
+            </p>
+            <div className="flex gap-2 mb-3">
+              <input type="url" value={shopUrl}
+                onChange={e => setShopUrl(e.target.value)}
+                placeholder="https://example.com/card-shop"
+                className="flex-1 bg-canvas border border-border rounded-lg px-4 py-2.5 text-textPrimary text-sm placeholder-textSecondary/50" />
+              <button onClick={handleSave}
+                className="px-4 py-2.5 rounded-lg bg-accent text-white text-sm hover:bg-accentHover transition font-medium">
+                保存
+              </button>
+            </div>
+            {savedUrl && (
+              <div className="flex items-center gap-2 bg-canvas/50 rounded-lg px-3 py-2">
+                <span className="text-xs text-textSecondary">当前链接:</span>
+                <a href={savedUrl} target="_blank" rel="noopener"
+                  className="text-xs text-accent hover:text-accentHover truncate flex-1">{savedUrl}</a>
+                <button onClick={handleClear} className="text-xs text-red-400 hover:text-red-300">清除</button>
+              </div>
+            )}
+          </div>
+
+          {/* 密码信息 */}
+          <div className="bg-surface border border-border rounded-xl p-5">
+            <h3 className="text-sm font-medium text-textSecondary mb-3">🔐 密码安全</h3>
+            <div className="space-y-2 text-xs text-textSecondary">
+              <div className="flex justify-between py-2 border-b border-border/30">
+                <span>默认密码</span>
+                <span className="text-textPrimary">admin2026</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-border/30">
+                <span>密码存储方式</span>
+                <span className="text-textPrimary">SHA256 哈希</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-border/30">
+                <span>错误锁定策略</span>
+                <span className="text-textPrimary">3次错误锁定5分钟</span>
+              </div>
+              <div className="flex justify-between py-2">
+                <span>密码是否已修改</span>
+                <span className={LS.get(LS_KEYS.PASSWORD_HASH, DEFAULT_PASSWORD_HASH) !== DEFAULT_PASSWORD_HASH ? 'text-green-400' : 'text-yellow-400'}>
+                  {LS.get(LS_KEYS.PASSWORD_HASH, DEFAULT_PASSWORD_HASH) !== DEFAULT_PASSWORD_HASH ? '✅ 已修改' : '⚠️ 使用默认密码'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* localStorage 管理 */}
+          <div className="bg-surface border border-border rounded-xl p-5">
+            <h3 className="text-sm font-medium text-textSecondary mb-3">🗄️ 数据管理</h3>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between py-2 border-b border-border/30">
+                <div>
+                  <div className="text-sm text-textPrimary">卡密批次数据</div>
+                  <div className="text-xs text-textSecondary">{(LS.get(LS_KEYS.CARD_BATCHES, []) || []).length} 个批次</div>
+                </div>
+                <button onClick={() => {
+                  LS.set(LS_KEYS.CARD_BATCHES, []);
+                  toast('success', '卡密批次数据已清空');
+                }} className="px-3 py-1 rounded text-xs bg-red-900/30 text-red-400 hover:bg-red-900/50 transition">清空</button>
+              </div>
+              <div className="flex items-center justify-between py-2 border-b border-border/30">
+                <div>
+                  <div className="text-sm text-textPrimary">定价配置</div>
+                  <div className="text-xs text-textSecondary">{LS.get(LS_KEYS.PACKAGES, null) ? '已自定义' : '默认值'}</div>
+                </div>
+                <button onClick={() => {
+                  LS.remove(LS_KEYS.PACKAGES);
+                  toast('success', '定价已恢复默认');
+                }} className="px-3 py-1 rounded text-xs bg-red-900/30 text-red-400 hover:bg-red-900/50 transition">重置</button>
+              </div>
+              <div className="flex items-center justify-between py-2">
+                <div>
+                  <div className="text-sm text-textPrimary">全部数据</div>
+                  <div className="text-xs text-textSecondary">清除所有管理后台产生的 localStorage 数据</div>
+                </div>
+                <button onClick={() => {
+                  if (confirm('确定清除所有管理后台数据？需要重新登录。')) {
+                    Object.values(LS_KEYS).forEach(k => LS.remove(k));
+                    window.location.reload();
+                  }
+                }} className="px-3 py-1 rounded text-xs bg-red-900/30 text-red-400 hover:bg-red-900/50 transition">全部清除</button>
+              </div>
+            </div>
+          </div>
+
+          {/* 关于 */}
+          <div className="bg-surface border border-border rounded-xl p-5">
+            <h3 className="text-sm font-medium text-textSecondary mb-3">ℹ️ 关于</h3>
+            <div className="text-xs text-textSecondary space-y-1">
+              <p>漫剧工作台 · 管理后台 v1.0</p>
+              <p>卡密算法与主应用完全一致，确保验证兼容</p>
+              <p>所有数据存储在浏览器本地，请注意备份</p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    /* ─── 主应用 ─── */
+    function App() {
+      const [authed, setAuthed] = useState(() => LS.get(LS_KEYS.AUTH, false) === true);
+      const [activeTab, setActiveTab] = useState('generator');
+      const [toasts, setToasts] = useState([]);
+      const [showChangePw, setShowChangePw] = useState(false);
+      const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+      const toast = useCallback((type, message) => {
+        const id = Date.now() + Math.random();
+        setToasts(prev => [...prev, { id, type, message }]);
+        setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500);
+      }, []);
+
+      const removeToast = useCallback((id) => {
+        setToasts(prev => prev.filter(t => t.id !== id));
+      }, []);
+
+      const handleLogin = () => setAuthed(true);
+
+      const handleLogout = () => {
+        LS.set(LS_KEYS.AUTH, false);
+        setAuthed(false);
+      };
+
+      if (!authed) {
+        return (
+          <>
+            <LoginPage onLogin={handleLogin} toast={toast} />
+            <ToastContainer toasts={toasts} onRemove={removeToast} />
+          </>
+        );
+      }
+
+      const tabs = [
+        { id: 'generator', label: '卡密生成', icon: '🎫' },
+        { id: 'stats', label: '卡密统计', icon: '📊' },
+        { id: 'pricing', label: '定价管理', icon: '💰' },
+        { id: 'config', label: '系统配置', icon: '⚙️' },
+      ];
+
+      const renderContent = () => {
+        switch (activeTab) {
+          case 'generator': return <CardGenerator toast={toast} />;
+          case 'stats': return <CardStats toast={toast} />;
+          case 'pricing': return <PricingManager toast={toast} />;
+          case 'config': return <SystemConfig toast={toast} />;
+          default: return null;
+        }
+      };
+
+      return (
+        <div className="h-screen flex flex-col bg-panel">
+          {/* 顶部导航 */}
+          <header className="h-14 flex items-center justify-between px-4 border-b border-border bg-surface shrink-0">
+            <div className="flex items-center gap-3">
+              <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                className="text-textSecondary hover:text-textPrimary transition p-1">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
+                </svg>
+              </button>
+              <h1 className="text-base font-bold text-textPrimary">漫剧工作台 · 管理后台</h1>
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setShowChangePw(true)}
+                className="px-3 py-1.5 rounded-lg text-xs bg-canvas border border-border text-textSecondary hover:text-textPrimary hover:border-accent/50 transition">
+                🔑 修改密码
+              </button>
+              <button onClick={handleLogout}
+                className="px-3 py-1.5 rounded-lg text-xs bg-red-900/30 border border-red-700/50 text-red-400 hover:bg-red-900/50 transition">
+                退出登录
+              </button>
+            </div>
+          </header>
+
+          <div className="flex flex-1 overflow-hidden">
+            {/* 侧边栏 */}
+            <nav className={`shrink-0 border-r border-border bg-surface flex flex-col transition-all duration-300 ${sidebarCollapsed ? 'w-14' : 'w-48'}`}>
+              {tabs.map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center gap-2 px-4 py-3.5 text-sm transition-all border-l-2 ${
+                    activeTab === tab.id
+                      ? 'bg-accent/10 text-accent border-accent'
+                      : 'text-textSecondary hover:text-textPrimary hover:bg-canvas/50 border-transparent'
+                  } ${sidebarCollapsed ? 'justify-center' : ''}`}
+                  title={tab.label}
+                >
+                  <span className="text-lg">{tab.icon}</span>
+                  {!sidebarCollapsed && <span>{tab.label}</span>}
+                </button>
+              ))}
+            </nav>
+
+            {/* 主内容区 */}
+            <main className="flex-1 overflow-y-auto p-6">
+              {renderContent()}
+            </main>
+          </div>
+
+          <ChangePasswordModal open={showChangePw} onClose={() => setShowChangePw(false)} toast={toast} />
+          <ToastContainer toasts={toasts} onRemove={removeToast} />
+        </div>
+      );
+    }
+
+    /* ─── 渲染 ─── */
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
